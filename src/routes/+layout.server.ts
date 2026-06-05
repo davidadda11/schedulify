@@ -1,5 +1,3 @@
-// src/routes/+layout.server.ts
-// Root layout server — loads session for all routes
 
 import type { LayoutServerLoad } from './$types';
 import { auth } from '$auth/auth';
