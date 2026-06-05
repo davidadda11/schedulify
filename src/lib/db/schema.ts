@@ -26,6 +26,7 @@ export const users = pgTable('user', {
   edu24Username: text('edu24_username'),     // 24edu.ro integration
   edu24Password: text('edu24_password'),     // encrypted
   gradeLevel:    integer('grade_level'),     // cls. 5-12
+  school: text('school'),
 });
 
 export const sessions = pgTable('session', {
