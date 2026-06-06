@@ -22,11 +22,12 @@ export const users = pgTable('user', {
   image:         text('image'),
   createdAt:     timestamp('created_at').notNull().defaultNow(),
   updatedAt:     timestamp('updated_at').notNull().defaultNow(),
-  // Custom fields
-  edu24Username: text('edu24_username'),     // 24edu.ro integration
-  edu24Password: text('edu24_password'),     // encrypted
-  gradeLevel:    integer('grade_level'),     // cls. 5-12
-  school: text('school'),
+  role:          text('role').notNull().default('user'),   // 'user' | 'admin'
+  banned:        boolean('banned').notNull().default(false),
+  edu24Username: text('edu24_username'),
+  edu24Password: text('edu24_password'),
+  gradeLevel:    integer('grade_level'),
+  school:        text('school'),
 });
 
 export const sessions = pgTable('session', {

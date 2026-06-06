@@ -1,16 +1,11 @@
-// src/lib/auth/auth.ts
-// Better Auth — Server Configuration
-// Docs: https://www.better-auth.com
-
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { db } from '$db/index';
 import * as schema from '$db/schema';
 
 export const auth = betterAuth({
-  // ── Database ──────────────────────────────────────────────
   database: drizzleAdapter(db, {
-    provider: 'pg',        // 'sqlite' for local dev with SQLite
+    provider: 'pg',
     schema: {
       user:    schema.users,
       session: schema.sessions,
@@ -18,14 +13,12 @@ export const auth = betterAuth({
     }
   }),
 
-  // ── Email + Password ──────────────────────────────────────
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false,   // set true in production
+    requireEmailVerification: false,
     minPasswordLength: 8,
   },
 
-  // ── Social Providers (optional) ───────────────────────────
   socialProviders: {
     google: {
       clientId:     process.env.GOOGLE_CLIENT_ID     ?? '',
@@ -33,28 +26,30 @@ export const auth = betterAuth({
     },
   },
 
-  // ── Session ───────────────────────────────────────────────
   session: {
-    expiresIn:           60 * 60 * 24 * 7,   // 7 days
-    updateAge:           60 * 60 * 24,        // refresh every 24h
+    expiresIn:           60 * 60 * 24 * 7,
+    updateAge:           60 * 60 * 24,
     cookieCache: {
       enabled: true,
-      maxAge:  5 * 60,                        // 5-min client-side cache
+      maxAge:  5 * 60,
     }
   },
 
-  // ── Trusted Origins ───────────────────────────────────────
   trustedOrigins: [
     process.env.BETTER_AUTH_URL ?? 'http://localhost:5173'
   ],
 
-  // ── Advanced ──────────────────────────────────────────────
   advanced: {
     crossSubDomainCookies: { enabled: false },
     defaultCookieAttributes: {
       secure:   process.env.NODE_ENV === 'production',
       sameSite: 'lax',
     }
+  },
+
+  pages: {
+    signIn: '/login',
+    signUp: '/register',
   }
 });
 

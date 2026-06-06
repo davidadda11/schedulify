@@ -15,14 +15,25 @@
     setTimeout(() => { showBubble = true; }, 1800);
   });
 
+  import { authClient } from '$lib/auth/auth-client';
+
   async function handleSubmit() {
-    if (!name || !email || !password) return;
-    isLoading = true;
-    await new Promise(r => setTimeout(r, 1800));
-    isLoading = false;
+  if (!name || !email || !password) return;
+  isLoading = true;
+  
+  const { error } = await authClient.signUp.email({
+    name,
+    email,
+    password
+  });
+  
+  isLoading = false;
+  if (error) {
+    alert(error.message);
+  } else {
     showSuccess = true;
   }
-
+}
   function handleFocus(field) {
     focusedField = field;
   }
