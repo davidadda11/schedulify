@@ -14,7 +14,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 // ── Better Auth required tables ──────────────────────────────
-export const users = pgTable('user', {
+export const user = pgTable('user', {
   id:            text('id').primaryKey(),
   name:          text('name').notNull(),
   email:         text('email').notNull().unique(),
@@ -30,9 +30,9 @@ export const users = pgTable('user', {
   school:        text('school'),
 });
 
-export const sessions = pgTable('session', {
+export const session = pgTable('session', {
   id:        text('id').primaryKey(),
-  userId:    text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId:    text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   token:     text('token').notNull().unique(),
   expiresAt: timestamp('expires_at').notNull(),
   ipAddress: text('ip_address'),
@@ -41,9 +41,9 @@ export const sessions = pgTable('session', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
-export const accounts = pgTable('account', {
+export const account = pgTable('account', {
   id:                    text('id').primaryKey(),
-  userId:                text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId:                text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   accountId:             text('account_id').notNull(),
   providerId:            text('provider_id').notNull(),
   accessToken:           text('access_token'),
@@ -56,7 +56,7 @@ export const accounts = pgTable('account', {
   updatedAt:             timestamp('updated_at').notNull().defaultNow(),
 });
 
-export const verifications = pgTable('verification', {
+export const verification = pgTable('verification', {
   id:         text('id').primaryKey(),
   identifier: text('identifier').notNull(),
   value:      text('value').notNull(),
@@ -66,9 +66,9 @@ export const verifications = pgTable('verification', {
 });
 
 // ── Application Tables ────────────────────────────────────────
-export const subjects = pgTable('subjects', {
+export const subject = pgTable('subjects', {
   id:          uuid('id').primaryKey().defaultRandom(),
-  userId:      text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId:      text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   name:        varchar('name', { length: 100 }).notNull(),
   colorHex:    varchar('color_hex', { length: 7 }).notNull().default('#6366f1'),
   icon:        text('icon').default('📚'),
@@ -78,10 +78,10 @@ export const subjects = pgTable('subjects', {
   createdAt:   timestamp('created_at').notNull().defaultNow(),
 });
 
-export const studySessions = pgTable('study_sessions', {
+export const studySession = pgTable('study_sessions', {
   id:          uuid('id').primaryKey().defaultRandom(),
-  userId:      text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  subjectId:   uuid('subject_id').references(() => subjects.id, { onDelete: 'set null' }),
+  userId:      text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  subjectId:   uuid('subject_id').references(() => subject.id, { onDelete: 'set null' }),
   startedAt:   timestamp('started_at').notNull(),
   endedAt:     timestamp('ended_at'),
   durationMin: integer('duration_min'),
@@ -90,10 +90,10 @@ export const studySessions = pgTable('study_sessions', {
   completed:   boolean('completed').default(false),
 });
 
-export const tasks = pgTable('tasks', {
+export const task = pgTable('tasks', {
   id:          uuid('id').primaryKey().defaultRandom(),
-  userId:      text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  subjectId:   uuid('subject_id').references(() => subjects.id, { onDelete: 'set null' }),
+  userId:      text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  subjectId:   uuid('subject_id').references(() => subject.id, { onDelete: 'set null' }),
   title:       text('title').notNull(),
   description: text('description'),
   dueDate:     timestamp('due_date'),
@@ -107,8 +107,8 @@ export const tasks = pgTable('tasks', {
 
 export const scheduleBlocks = pgTable('schedule_blocks', {
   id:          uuid('id').primaryKey().defaultRandom(),
-  userId:      text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  subjectId:   uuid('subject_id').references(() => subjects.id),
+  userId:      text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  subjectId:   uuid('subject_id').references(() => subject.id),
   dayOfWeek:   integer('day_of_week').notNull(),   // 0=Mon … 6=Sun
   startHour:   real('start_hour').notNull(),        // 14.5 = 14:30
   endHour:     real('end_hour').notNull(),
@@ -118,8 +118,8 @@ export const scheduleBlocks = pgTable('schedule_blocks', {
 });
 
 // ── Type Exports ──────────────────────────────────────────────
-export type User          = typeof users.$inferSelect;
-export type Subject       = typeof subjects.$inferSelect;
-export type StudySession  = typeof studySessions.$inferSelect;
-export type Task          = typeof tasks.$inferSelect;
+export type User          = typeof user.$inferSelect;
+export type Subject       = typeof subject.$inferSelect;
+export type StudySession  = typeof studySession.$inferSelect;
+export type Task          = typeof task.$inferSelect;
 export type ScheduleBlock = typeof scheduleBlocks.$inferSelect;
