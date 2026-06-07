@@ -107,7 +107,10 @@
           </div>
           <h2>Welcome aboard!</h2>
           <p>Your account has been created. Let's get scheduling.</p>
-          <button class="btn-primary" onclick={() => showSuccess = false}>
+          <button class="btn-primary" onclick={() => {
+            showSuccess = false;
+            window.location.href = "/app/dashboard";
+          }}>
             Go to Dashboard →
           </button>
         </div>

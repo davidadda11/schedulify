@@ -1,5 +1,5 @@
 {
-  "name": "studyflow",
+  "name": "sheludify",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -8,7 +8,8 @@
     "preview": "vite preview",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:start": "docker compose up -d"
   },
   "devDependencies": {
     "@sveltejs/adapter-node": "^5.2.0",

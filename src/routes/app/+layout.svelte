@@ -26,7 +26,7 @@
 				
 					href={item.href}
 					style="display:block; padding:10px 14px; border-radius:10px; text-decoration:none; font-size:14px; font-weight:600; color:{$page.url.pathname === item.href ? '#fff' : '#64748b'}; background:{$page.url.pathname === item.href ? '#2563eb' : 'transparent'};"
-				>
+				<a>
 					{item.label}
 				</a>
 			{/each}
