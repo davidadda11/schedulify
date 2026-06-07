@@ -36,7 +36,7 @@
     const { data, error: authError } = await signIn.email({
       email,
       password,
-      callbackURL: '/dashboard',
+      callbackURL: '/app/dashboard',
     });
 
     if (authError) {
@@ -52,12 +52,12 @@
       return;
     }
 
-    await goto('/dashboard');
+    await goto('/app/dashboard');
   }
 
   // ── Google sign in ────────────────────────────────────────
   async function handleGoogle() {
-    await signIn.social({ provider: 'google', callbackURL: '/dashboard' });
+    await signIn.social({ provider: 'google', callbackURL: '/app/dashboard' });
   }
 </script>
 
