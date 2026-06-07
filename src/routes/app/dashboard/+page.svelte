@@ -1,391 +1,409 @@
-<!-- src/routes/(app)/dashboard/+page.svelte -->
-<!-- Dashboard — subject cards, stats, today's schedule        -->
-
-<script lang="ts">
+<script>
   import { onMount } from 'svelte';
-  import gsap from 'gsap';
-  import CourseCard from '$components/CourseCard.svelte';
 
-  let { data } = $props();
+  let mounted = $state(false);
+  let coins = $state(25);
 
-  // ── Mock data (replace with DB queries) ──────────────────
-  const subjects = [
-    { id: '1', userId: '1', name: 'Matematică',   colorHex: '#6366f1', icon: '∑', hoursPerWeek: 4, priority: 5, edu24Id: null, createdAt: new Date() },
-    { id: '2', userId: '1', name: 'Fizică',       colorHex: '#22d3ee', icon: '⚛', hoursPerWeek: 3, priority: 4, edu24Id: null, createdAt: new Date() },
-    { id: '3', userId: '1', name: 'Română',       colorHex: '#f43f5e', icon: '✍', hoursPerWeek: 2, priority: 3, edu24Id: null, createdAt: new Date() },
-    { id: '4', userId: '1', name: 'Informatică',  colorHex: '#10b981', icon: '⌨', hoursPerWeek: 3, priority: 4, edu24Id: null, createdAt: new Date() },
-    { id: '5', userId: '1', name: 'Biologie',     colorHex: '#f59e0b', icon: '🧬', hoursPerWeek: 2, priority: 2, edu24Id: null, createdAt: new Date() },
-  ];
-
-  const progresses = [72, 45, 88, 61, 33];
-  const taskCounts = [3, 1, 0, 2, 4];
-
-  // ── Today's schedule (mock) ───────────────────────────────
-  const todayBlocks = [
-    { time: '08:00 – 09:50', label: 'Matematică',  type: 'school', color: '#6366f1' },
-    { time: '10:00 – 10:25', label: 'Pomodoro #1', type: 'study',  color: '#22d3ee' },
-    { time: '14:00 – 16:00', label: 'Informatică', type: 'school', color: '#10b981' },
-    { time: '17:00 – 18:30', label: 'Studiu Fizică', type: 'study', color: '#22d3ee' },
-  ];
-
-  // ── Stats ─────────────────────────────────────────────────
-  const stats = [
-    { label: 'Ore studiate azi',  value: '3.5h', delta: '+0.5h', up: true  },
-    { label: 'Streak activ',      value: '7 zile', delta: 'record!', up: true  },
-    { label: 'Teme restante',     value: '5',   delta: '-2',     up: true  },
-    { label: 'Medie generală',    value: '9.2', delta: '+0.3',   up: true  },
-  ];
-
-  // ── Entrance animation ────────────────────────────────────
   onMount(() => {
-    gsap.fromTo(
-      '.dash-stat',
-      { opacity: 0, y: 20 },
-      { opacity: 1, y: 0, duration: 0.5, stagger: 0.08, ease: 'expo.out', delay: 0.2 }
-    );
-    gsap.fromTo(
-      '.course-card-wrap',
-      { opacity: 0, y: 30, scale: 0.97 },
-      { opacity: 1, y: 0, scale: 1, duration: 0.6, stagger: 0.1, ease: 'expo.out', delay: 0.4 }
-    );
+    setTimeout(() => { mounted = true; }, 100);
   });
+
+  
 </script>
 
 <svelte:head>
-  <title>Dashboard — StudyFlow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
 </svelte:head>
 
-<div class="dashboard">
+<div class="page" class:mounted>
+  <div class="bg-blob blob-1"></div>
+  <div class="bg-blob blob-2"></div>
+  <div class="bg-blob blob-3"></div>
+  <div class="grid-overlay"></div>
 
-  <!-- Header -->
-  <header class="dash-header">
-    <div>
-      <p class="dash-greeting">Bună ziua, {data?.user?.name?.split(' ')[0] ?? 'elev'} 👋</p>
-      <h1 class="dash-title">Dashboard</h1>
-    </div>
-    <div class="dash-date">
-      <span>{new Date().toLocaleDateString('ro-RO', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
-    </div>
-  </header>
+    <main class="main-content">
+      <header class="top-header">
+        <h2>Salut! Săptămâna ta arată excelent.</h2>
+        <p>Ai 3 task-uri noi pentru astăzi.</p>
+      </header>
 
-  <!-- Stats row -->
-  <div class="stats-grid">
-    {#each stats as stat}
-      <div class="dash-stat glass glass-hover">
-        <p class="stat-value">{stat.value}</p>
-        <p class="stat-label">{stat.label}</p>
-        <span class="stat-delta" class:up={stat.up}>{stat.delta}</span>
-      </div>
-    {/each}
-  </div>
-
-  <!-- Two column layout -->
-  <div class="dash-body">
-
-    <!-- Subjects column -->
-    <section class="subjects-section" aria-label="Materiile mele">
-      <div class="section-header">
-        <h2 class="section-title">Materiile mele</h2>
-        <a href="/subjects/new" class="section-action">+ Adaugă</a>
-      </div>
-
-      <div class="cards-grid">
-        {#each subjects as subject, i}
-          <div class="course-card-wrap">
-            <CourseCard
-              {subject}
-              progress={progresses[i]}
-              tasksCount={taskCounts[i]}
-              nextSession={new Date(Date.now() + (i+1) * 3_600_000).toISOString()}
-              onStart={() => console.log('Start study:', subject.name)}
-              onDetails={() => console.log('Details:', subject.name)}
-            />
+      <div class="bento-grid">
+        <div class="bento-card tall-card">
+          <div class="card-header">
+            <h3>Task-uri viitoare</h3>
+            <span class="badge">3 active</span>
           </div>
-        {/each}
-      </div>
-    </section>
-
-    <!-- Right column: today's schedule -->
-    <aside class="today-section">
-      <div class="section-header">
-        <h2 class="section-title">Programul de azi</h2>
-        <a href="/calendar" class="section-action">Complet →</a>
-      </div>
-
-      <div class="today-list">
-        {#each todayBlocks as block, i}
-          <div
-            class="today-block"
-            class:school={block.type === 'school'}
-            class:study={block.type === 'study'}
-            style="--block-color: {block.color}; animation-delay: {i * 0.07}s"
-          >
-            <div class="block-dot" style="background: {block.color};"></div>
-            <div class="block-info">
-              <p class="block-label">{block.label}</p>
-              <p class="block-time">{block.time}</p>
-            </div>
-            <span class="block-type-badge">{block.type === 'school' ? 'Școală' : 'Studiu'}</span>
+          <div class="card-body">
+            <label class="task-item"><input type="checkbox" /> Citește capitolul 4 la Istorie</label>
+            <label class="task-item"><input type="checkbox" /> Exercițiile 1-5 la Mate</label>
+            <label class="task-item"><input type="checkbox" /> Trimite eseul la Engleză</label>
           </div>
-        {/each}
-      </div>
-
-      <!-- Quick start pomodoro -->
-      <div class="quick-pomodoro glass glass-hover">
-        <div class="pomodoro-icon">⏱</div>
-        <div>
-          <p class="pomodoro-title">Pornește Pomodoro</p>
-          <p class="pomodoro-desc">25 min focus • 5 min pauză</p>
         </div>
-        <button class="pomodoro-btn" aria-label="Pornește timer">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M6 4.5l6 3.5-6 3.5V4.5Z" fill="currentColor"/>
-          </svg>
-        </button>
+
+        <div class="bento-card wide-card">
+          <div class="card-header">
+            <h3>Orarul de azi</h3>
+          </div>
+          <div class="card-body timeline-flex">
+            <div class="timeline-item"><span class="time">08:00</span><div class="subject">Matematică</div></div>
+            <div class="timeline-item"><span class="time">09:00</span><div class="subject">Fizică</div></div>
+            <div class="timeline-item"><span class="time">10:00</span><div class="subject">Informatică</div></div>
+            <div class="timeline-item active"><span class="time">11:00</span><div class="subject">Pauză Mare</div></div>
+          </div>
+        </div>
+
+        <div class="bento-card">
+          <div class="card-header">
+            <h3>Teme viitoare</h3>
+          </div>
+          <div class="card-body">
+            <p class="placeholder-text">Geografie - Proiect (Vineri)</p>
+          </div>
+        </div>
+
+        <div class="bento-card">
+          <div class="card-header">
+            <h3>Teste viitoare</h3>
+          </div>
+          <div class="card-body">
+            <p class="placeholder-text highlight">Test Info - Luni</p>
+          </div>
+        </div>
+
+        <div class="bento-card wide-card">
+          <div class="card-header">
+            <h3>Calendar Mini</h3>
+          </div>
+          <div class="card-body calendar-grid">
+            {#each ['L', 'M', 'M', 'J', 'V', 'S', 'D'] as day}
+              <div class="cal-day-header">{day}</div>
+            {/each}
+            {#each Array(14) as _, i}
+              <div class="cal-day" class:active={i === 4}>{i + 1}</div>
+            {/each}
+          </div>
+        </div>
       </div>
-    </aside>
+    </main>
   </div>
-</div>
+
 
 <style>
-  .dashboard {
-    max-width: 1200px;
-    padding-bottom: 3rem;
-  }
-
-  /* Header */
-  .dash-header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    margin-bottom: 2rem;
-  }
-
-  .dash-greeting {
-    font-size: 0.9rem;
-    color: rgba(255,255,255,0.4);
-    margin: 0 0 0.2rem;
-  }
-
-  .dash-title {
-    font-family: var(--font-display);
-    font-size: 2rem;
-    font-weight: 800;
+  :global(*, *::before, *::after) {
+    box-sizing: border-box;
     margin: 0;
-    letter-spacing: -0.03em;
+    padding: 0;
   }
 
-  .dash-date {
-    font-size: 0.82rem;
-    color: rgba(255,255,255,0.35);
-    text-transform: capitalize;
+  :global(body) {
+    overflow: hidden;
   }
 
-  /* Stats */
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-    margin-bottom: 2rem;
-  }
+  .page {
+    --blue-950: #0a1628;
+    --blue-900: #0f2347;
+    --blue-800: #1a3a6b;
+    --blue-600: #2563eb;
+    --blue-500: #3b82f6;
+    --blue-400: #60a5fa;
+    --blue-200: #bfdbfe;
+    --white: #ffffff;
 
-  .dash-stat {
-    border-radius: var(--radius-lg);
-    padding: 1.2rem;
+    font-family: 'DM Sans', sans-serif;
+    height: 100vh;
+    width: 100vw;
+    background: var(--blue-950);
     position: relative;
     overflow: hidden;
-    opacity: 0;
   }
 
-  .stat-value {
-    font-family: var(--font-display);
-    font-size: 1.8rem;
-    font-weight: 800;
-    margin: 0 0 0.2rem;
-    color: rgba(255,255,255,0.92);
-    letter-spacing: -0.03em;
+  .bg-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
   }
 
-  .stat-label {
-    font-size: 0.75rem;
-    color: rgba(255,255,255,0.4);
-    margin: 0 0 0.5rem;
+  .blob-1 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(37,99,235,0.25) 0%, transparent 70%); top: -100px; left: -100px; animation: blobFloat 9s ease-in-out infinite; }
+  .blob-2 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(96,165,250,0.15) 0%, transparent 70%); bottom: -100px; right: 10%; animation: blobFloat 12s ease-in-out infinite reverse; }
+  .blob-3 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%); top: 40%; left: 40%; animation: blobFloat 7s ease-in-out infinite 3s; }
+
+  .grid-overlay {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(rgba(96,165,250,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(96,165,250,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
   }
 
-  .stat-delta {
-    font-size: 0.72rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 100px;
-    background: rgba(244,63,94,0.1);
-    color: var(--accent-rose);
-    border: 1px solid rgba(244,63,94,0.15);
+  @keyframes blobFloat {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(30px, -20px) scale(1.05); }
+    66% { transform: translate(-15px, 15px) scale(0.97); }
   }
 
-  .stat-delta.up {
-    background: rgba(16,185,129,0.1);
-    color: var(--accent-emerald);
-    border-color: rgba(16,185,129,0.2);
-  }
-
-  /* Body layout */
-  .dash-body {
+  .dashboard-layout {
+    position: relative;
+    z-index: 1;
     display: grid;
-    grid-template-columns: 1fr 320px;
-    gap: 2rem;
-    align-items: start;
-  }
-
-  /* Section header */
-  .section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1.2rem;
-  }
-
-  .section-title {
-    font-family: var(--font-display);
-    font-size: 1.1rem;
-    font-weight: 700;
-    margin: 0;
-    color: rgba(255,255,255,0.85);
-  }
-
-  .section-action {
-    font-size: 0.78rem;
-    color: var(--accent-violet);
-    text-decoration: none;
-    transition: color 0.2s;
-  }
-
-  .section-action:hover {
-    color: var(--accent-cyan);
-  }
-
-  /* Cards grid */
-  .cards-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.2rem;
-  }
-
-  .course-card-wrap {
+    grid-template-columns: 260px 1fr;
+    height: 100%;
+    gap: 32px;
+    padding: 24px;
     opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  /* Today's schedule */
-  .today-list {
+  .page.mounted .dashboard-layout {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 24px;
+    box-shadow: 0 0 0 1px rgba(37,99,235,0.1), 0 16px 40px rgba(10, 22, 40, 0.4);
+    backdrop-filter: blur(20px);
+  }
+
+  .sidebar {
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
-    margin-bottom: 1.2rem;
+    padding: 32px 24px;
+    height: 100%;
   }
 
-  .today-block {
+  .branding {
     display: flex;
     align-items: center;
-    gap: 0.8rem;
-    padding: 0.8rem;
-    border-radius: var(--radius-md);
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-left: 3px solid var(--block-color);
-    animation: blockIn 0.4s ease-out both;
+    gap: 12px;
+    margin-bottom: 40px;
+    color: var(--blue-600);
   }
 
-  @keyframes blockIn {
-    from { opacity: 0; transform: translateX(-10px); }
-    to   { opacity: 1; transform: translateX(0); }
+  .logo-mark { width: 36px; height: 36px; }
+
+  .brand-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--blue-950) 0%, var(--blue-600) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
-  .block-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
+  .menu {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
   }
 
-  .block-info { flex: 1; }
-
-  .block-label {
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: rgba(255,255,255,0.8);
-    margin: 0 0 0.15rem;
-  }
-
-  .block-time {
-    font-size: 0.72rem;
-    color: rgba(255,255,255,0.35);
-    margin: 0;
-  }
-
-  .block-type-badge {
-    font-size: 0.65rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 100px;
-    background: rgba(255,255,255,0.05);
-    color: rgba(255,255,255,0.3);
-    border: 1px solid rgba(255,255,255,0.07);
-    white-space: nowrap;
-  }
-
-  /* Pomodoro quick start */
-  .quick-pomodoro {
+  .menu-item {
     display: flex;
     align-items: center;
-    gap: 0.8rem;
-    padding: 1rem;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-  }
-
-  .pomodoro-icon {
-    font-size: 1.4rem;
-  }
-
-  .pomodoro-title {
-    font-size: 0.88rem;
-    font-weight: 600;
-    color: rgba(255,255,255,0.8);
-    margin: 0 0 0.15rem;
-  }
-
-  .pomodoro-desc {
-    font-size: 0.72rem;
-    color: rgba(255,255,255,0.35);
-    margin: 0;
-  }
-
-  .pomodoro-btn {
-    margin-left: auto;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: var(--accent-violet);
+    gap: 16px;
+    padding: 12px 16px;
     border: none;
-    color: #fff;
+    background: transparent;
+    border-radius: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: #64748b;
     cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+  }
+
+  .menu-item:hover {
+    background: #eff6ff;
+    color: var(--blue-600);
+  }
+
+  .menu-item.active {
+    background: var(--blue-600);
+    color: white;
+  }
+
+  .sidebar-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .coin-badge {
+    background: #fffbeb;
+    color: #d97706;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    transition: transform 0.2s var(--ease-spring), box-shadow 0.2s;
-    flex-shrink: 0;
+    gap: 8px;
+    border: 1px solid #fde68a;
   }
 
-  .pomodoro-btn:hover {
-    transform: scale(1.12);
-    box-shadow: 0 0 20px rgba(99,102,241,0.5);
+  .account-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: #eff6ff;
+    color: var(--blue-950);
+    font-weight: 600;
+    cursor: pointer;
   }
 
-  /* Responsive */
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--blue-400), var(--blue-600));
+  }
+
+  .main-content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    height: 100%;
+    overflow-y: auto;
+    padding-right: 12px;
+  }
+
+  .main-content::-webkit-scrollbar { width: 6px; }
+  .main-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+
+  .top-header { color: white; }
+
+  .top-header h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 32px;
+    margin-bottom: 4px;
+  }
+
+  .top-header p { color: var(--blue-200); font-size: 16px; }
+
+  .bento-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr 1fr;
+    grid-auto-rows: minmax(180px, auto);
+    gap: 24px;
+    flex: 1;
+  }
+
+  .bento-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: 0 4px 24px rgba(10, 22, 40, 0.2);
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s ease;
+  }
+
+  .bento-card:hover { transform: translateY(-4px); }
+  .tall-card { grid-row: span 3; }
+  .wide-card { grid-column: span 2; }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .card-header h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    color: var(--blue-950);
+  }
+
+  .badge {
+    background: #dbeafe;
+    color: var(--blue-600);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .task-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 15px;
+    color: #475569;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 12px;
+    cursor: pointer;
+  }
+
+  .task-item input { width: 18px; height: 18px; accent-color: var(--blue-600); }
+
+  .timeline-flex {
+    flex-direction: row;
+    gap: 16px;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .timeline-item {
+    text-align: center;
+    background: #f8fafc;
+    padding: 16px;
+    border-radius: 16px;
+    flex: 1;
+  }
+
+  .timeline-item.active { background: var(--blue-600); color: white; }
+  .timeline-item .time { display: block; font-size: 12px; opacity: 0.8; margin-bottom: 4px; font-weight: 600; }
+  .timeline-item .subject { font-weight: 700; font-size: 15px; }
+
+  .placeholder-text {
+    font-size: 15px;
+    color: #475569;
+    padding: 16px;
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    text-align: center;
+  }
+
+  .highlight { border-color: #ef4444; color: #ef4444; background: #fef2f2; }
+
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    text-align: center;
+  }
+
+  .cal-day-header { font-size: 12px; font-weight: 700; color: #94a3b8; }
+  .cal-day { padding: 8px; font-size: 14px; color: var(--blue-950); border-radius: 8px; cursor: pointer; }
+  .cal-day:hover { background: #eff6ff; }
+  .cal-day.active { background: var(--blue-600); color: white; font-weight: bold; }
+
   @media (max-width: 1024px) {
-    .stats-grid { grid-template-columns: repeat(2, 1fr); }
-    .dash-body  { grid-template-columns: 1fr; }
-  }
-
-  @media (max-width: 640px) {
-    .stats-grid { grid-template-columns: repeat(2, 1fr); }
-    .dash-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+    .dashboard-layout { grid-template-columns: 1fr; }
+    .sidebar { flex-direction: row; height: auto; padding: 16px; align-items: center; justify-content: space-between; }
+    .menu { flex-direction: row; }
+    .sidebar-footer { flex-direction: row; }
+    .bento-grid { grid-template-columns: 1fr; }
+    .tall-card, .wide-card { grid-column: auto; grid-row: auto; }
+    .timeline-flex { flex-direction: column; }
+    :global(body) { overflow: auto; }
   }
 </style>
