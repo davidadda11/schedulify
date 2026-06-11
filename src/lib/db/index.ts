@@ -1,4 +1,4 @@
-
+// src/lib/db/index.ts
 import { DATABASE_URL } from '$env/static/private';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
@@ -15,6 +15,7 @@ const client = postgres(DATABASE_URL, {
   connect_timeout: 10,
 });
 
+// Folosim import.meta.env.DEV (metoda nativă Vite) în loc de process.env.NODE_ENV
 export const db = drizzle(client, { 
   schema, 
   logger: import.meta.env.DEV 
