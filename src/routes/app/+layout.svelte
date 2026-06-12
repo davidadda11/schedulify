@@ -62,6 +62,9 @@
         {@render children()}
     </main>
 </div>
+{:else}
+  <!-- debug temporar -->
+  <p style="color:white">Session: {JSON.stringify(data)}</p>
 {/if}
 
 <style>

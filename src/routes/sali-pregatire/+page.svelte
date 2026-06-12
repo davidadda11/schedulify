@@ -85,8 +85,6 @@
 </div>
 
 <style>
-  :global(*, *::before, *::after) { box-sizing: border-box; margin: 0; padding: 0; }
-
   .page {
     --blue-950: #0a1628;
     --blue-900: #0f2347;
@@ -99,10 +97,9 @@
 
     font-family: 'DM Sans', sans-serif;
     min-height: 100vh;
-    width: 100vw;
+    width: 100%;
     background: var(--blue-950);
     position: relative;
-    overflow-x: hidden;
 
     opacity: 0;
     transform: translateY(16px);
@@ -111,7 +108,6 @@
 
   .page.mounted { opacity: 1; transform: translateY(0); }
 
-  /* Blobs */
   .bg-blob {
     position: fixed;
     border-radius: 50%;
@@ -140,7 +136,6 @@
     z-index: 0;
   }
 
-  /* Layout */
   .main-content {
     position: relative;
     z-index: 1;
@@ -152,7 +147,6 @@
     gap: 40px;
   }
 
-  /* Header */
   .top-header { color: white; display: flex; flex-direction: column; gap: 8px; }
 
   .back-link {
@@ -179,14 +173,12 @@
 
   .top-header p { color: var(--blue-200); font-size: 17px; }
 
-  /* Bento Grid */
   .bento-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 24px;
   }
 
-  /* Cards */
   .bento-card {
     background: rgba(255, 255, 255, 0.95);
     border-radius: 24px;
@@ -249,7 +241,6 @@
   .btn-arrow { transition: transform 0.2s ease; }
   .action-btn:hover .btn-arrow { transform: translateX(3px); }
 
-  /* Responsive */
   @media (max-width: 768px) {
     .main-content { padding: 32px 20px 48px; }
     .top-header h2 { font-size: 28px; }

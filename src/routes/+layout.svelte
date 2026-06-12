@@ -8,10 +8,8 @@
   import { page } from '$app/stores';
   import gsap from 'gsap';
 
-  // ── Props ────────────────────────────────────────────────
   let { children, data }: { children: any; data: any } = $props();
 
-  // ── Page transition refs ─────────────────────────────────
   let mainEl: HTMLElement;
   let isTransitioning = $state(false);
 
@@ -23,6 +21,7 @@
       y: -10,
       duration: 0.25,
       ease: 'power2.in',
+      clearProps: 'transform',
     });
   });
 
@@ -36,11 +35,11 @@
         y: 0,
         duration: 0.5,
         ease: 'expo.out',
+        clearProps: 'all',
         onComplete: () => { isTransitioning = false; },
       }
     );
-    // Scroll top on navigate
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo(0, 0);
   });
 </script>
 

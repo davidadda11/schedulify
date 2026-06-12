@@ -13,62 +13,25 @@
 
   onMount(() => setTimeout(() => { mounted = true; }, 100));
 
-  const mockIntrebari: Record<string, string[]> = {
-    matematica: [
-      'Care este formula pentru aria unui cerc?',
-      'Rezolvați ecuația: 2x + 5 = 13.',
-      'Ce este un număr prim? Dați 3 exemple.',
-      'Calculați 25% din 240.',
-      'Care este valoarea lui x dacă 3x - 7 = 14?',
-      'Ce este teorema lui Pitagora?',
-      'Simplificați fracția 36/48.',
-      'Calculați perimetrul unui dreptunghi cu L=8 și l=5.',
-    ],
-    fizica: [
-      'Care este formula vitezei medii?',
-      'Ce este inerția unui corp?',
-      'Enunțați primul principiu al mecanicii newtoniene.',
-      'Care este unitatea de măsură a forței în SI?',
-      'Ce este energia cinetică? Scrieți formula.',
-      'Explicați fenomenul de dilatare termică.',
-      'Ce este presiunea? Cum se calculează?',
-      'Care este viteza luminii în vid?',
-    ],
-    chimie: [
-      'Ce este un atom? Dar o moleculă?',
-      'Care sunt componentele unui atom?',
-      'Ce este valența unui element chimic?',
-      'Scrieți formula apei și explicați legăturile chimice.',
-      'Ce este un ion? Dați exemple de cationi și anioni.',
-      'Explicați reacția de ardere a carbonului.',
-      'Ce este tabelul periodic al elementelor?',
-      'Ce este un acid? Dați 3 exemple.',
-    ],
-    default: [
-      'Care sunt conceptele principale ale acestei lecții?',
-      'Explicați cu cuvintele voastre principalele idei.',
-      'Care sunt cauzele și efectele fenomenului studiat?',
-      'Dați un exemplu concret din viața reală.',
-      'Ce legătură există între această lecție și cele anterioare?',
-      'Care sunt termenii-cheie pe care trebuie să îi cunoașteți?',
-      'Descrieți procesul/fenomenul pas cu pas.',
-      'Ce întrebări v-ar putea pune profesorul la test?',
-    ],
-  };
+  async function genereaza() {
+  if (!materie.trim() || !lectie.trim()) return;
+  loading = true;
+  intrebari = [];
 
-  function genereaza() {
-    if (!materie.trim() || !lectie.trim()) return;
-    loading = true;
-    intrebari = [];
-
-    setTimeout(() => {
-      const key = materie.toLowerCase().trim();
-      const pool = mockIntrebari[key] ?? mockIntrebari.default;
-      const shuffled = [...pool].sort(() => Math.random() - 0.5);
-      intrebari = shuffled.slice(0, Math.min(numarIntrebari, pool.length));
-      loading = false;
-    }, 1200);
+  try {
+    const res = await fetch('/api/intrebari', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ materie, lectie, dificultate, numar: numarIntrebari })
+    });
+    const data = await res.json();
+    intrebari = data.intrebari ?? [];
+  } catch (e) {
+    console.error(e);
+  } finally {
+    loading = false;
   }
+}
 </script>
 
 <svelte:head>
