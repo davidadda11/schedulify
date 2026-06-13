@@ -1,27 +1,27 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
- 
+
 export const POST: RequestHandler = async ({ request }) => {
   const formData = await request.formData();
   const imagine = formData.get('imagine') as File | null;
   const materie = formData.get('materie') as string ?? '';
   const observatii = formData.get('observatii') as string ?? '';
- 
+
   if (!imagine) {
     return json({ error: 'Nicio imagine primită.' }, { status: 400 });
   }
- 
+
   const buffer = await imagine.arrayBuffer();
   const base64 = Buffer.from(buffer).toString('base64');
- 
-  console.log('[analiza-test] Imagine primită:', imagine.name, imagine.type, imagine.size, 'bytes');
 
-  // --- PASUL 1: llava-phi3 citește textul din imagine ---
+  console.log('[analiza-test] Imagine primită:', imagine.name, imagine.size, 'bytes');
+
+  // --- PASUL 1: llava-phi3 citește testul ---
   let descriere = '';
   try {
     const controller1 = new AbortController();
-    const timeout1 = setTimeout(() => controller1.abort(), 180000); // 3 minute
- 
+    const timeout1 = setTimeout(() => controller1.abort(), 180000);
+
     const res1 = await fetch('http://localhost:11434/api/generate', {
       signal: controller1.signal,
       method: 'POST',
@@ -35,11 +35,11 @@ export const POST: RequestHandler = async ({ request }) => {
       })
     });
     clearTimeout(timeout1);
- 
+
     const reader = res1.body!.getReader();
     const decoder = new TextDecoder();
     let chunks = '';
- 
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -53,42 +53,34 @@ export const POST: RequestHandler = async ({ request }) => {
         } catch {}
       }
     }
- 
+
     descriere = chunks.trim();
-    console.log('[analiza-test] llava-phi3 descriere:', descriere.slice(0, 300));
- 
+    console.log('[analiza-test] llava-phi3:', descriere.slice(0, 300));
+
   } catch (e) {
     console.error('[analiza-test] llava-phi3 error:', e);
-    return json({ error: 'Eroare la analiza imaginii. Verifică că Ollama rulează.' }, { status: 500 });
+    return json({ error: 'Eroare la analiza imaginii.' }, { status: 500 });
   }
- 
+
   if (!descriere.trim()) {
     return json({ error: 'Modelul nu a putut citi imaginea. Încearcă o poză mai clară.' }, { status: 500 });
   }
- 
-  // --- PASUL 2: qwen generează feedback structurat ---
-  const prompt2 = `Esti un profesor roman experimentat. Analizeaza acest test de elev si scrie o analiza reala.
- 
-Descrierea imaginii testului: ${descriere}
-Materia: ${materie || 'necunoscuta'}
+
+  // --- PASUL 2: qwen feedback concret ---
+  const prompt2 = `Esti un profesor roman de ${materie || 'liceu'}. Un elev ti-a trimis testul sau. Citeste descrierea si da feedback CONCRET si SPECIFIC.
+
+Ce a vazut AI-ul in test: ${descriere}
 Observatii elev: ${observatii || 'niciuna'}
- 
-Raspunde STRICT cu JSON valid, fara text in afara JSON-ului, fara comentarii:
-{
-  "nota_estimata": "ex: 8",
-  "mesaj": "mesaj motivational real de 1-2 propozitii in romana",
-  "culoare": "#22c55e",
-  "ce_a_vazut": "descrie concret ce ai observat in test, 1-2 propozitii in romana",
-  "puncteTari": ["primul punct forte observat", "al doilea punct forte", "al treilea punct forte"],
-  "puncteSlabe": ["prima problema identificata", "a doua problema", "a treia problema"],
-  "recomandari": ["prima recomandare concreta", "a doua recomandare", "a treia recomandare", "a patra recomandare"],
-  "capitoleRepetare": ["primul capitol de studiat", "al doilea capitol", "al treilea capitol"]
-}`;
- 
+
+IMPORTANT: Nu folosi fraze generice. Fii specific la materia ${materie || 'din test'}. Mentioneaza concepte reale, exercitii concrete, metode de invatare specifice.
+
+Raspunde DOAR cu acest JSON complet (fara text inainte sau dupa, fara comentarii cu //):
+{"nota_estimata":"7","mesaj":"Ai demonstrat cunostinte solide la capitolele de baza, dar subiectul 3 are nevoie de atentie. Nu te descuraja!","culoare":"#3b82f6","ce_a_vazut":"Am observat raspunsuri la [subiecte concrete din descriere]. Elevul a avut dificultati la [parte specifica].","puncteTari":["Descrie primul lucru concret facut bine","Descrie al doilea lucru concret facut bine","Descrie al treilea lucru concret facut bine"],"puncteSlabe":["Descrie prima greseala concreta facuta","Descrie a doua greseala concreta","Descrie a treia greseala concreta"],"recomandari":["Recomandare concreta 1: ce anume sa studieze si cum","Recomandare concreta 2: exercitiu specific de facut","Recomandare concreta 3: metoda de memorare pentru acest subiect","Recomandare concreta 4: cum sa se pregateasca pentru data viitoare"],"capitoleRepetare":["Capitol sau tema concreta 1","Capitol sau tema concreta 2","Capitol sau tema concreta 3"]}`;
+
   try {
     const controller2 = new AbortController();
     const timeout2 = setTimeout(() => controller2.abort(), 60000);
- 
+
     const res2 = await fetch('http://localhost:11434/api/generate', {
       signal: controller2.signal,
       method: 'POST',
@@ -97,28 +89,27 @@ Raspunde STRICT cu JSON valid, fara text in afara JSON-ului, fara comentarii:
         model: 'qwen2.5:1.5b',
         prompt: prompt2,
         stream: false,
-        options: { num_ctx: 2048, num_predict: 800, temperature: 0.2 }
+        options: { num_ctx: 2048, num_predict: 1000, temperature: 0.3 }
       })
     });
     clearTimeout(timeout2);
- 
+
     const raw2 = await res2.json();
     const text = raw2.response ?? '';
-    console.log('[analiza-test] Qwen răspuns raw:', text.slice(0, 300));
- 
+    console.log('[analiza-test] Qwen raw:', text.slice(0, 400));
+
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) {
       return json({ error: 'AI-ul nu a generat un răspuns structurat. Încearcă din nou.' }, { status: 500 });
     }
- 
+
     const jsonCurat = match[0]
       .replace(/\/\/[^\n"]*/g, '')
       .replace(/,\s*([}\]])/g, '$1')
       .trim();
- 
+
     const analiza = JSON.parse(jsonCurat);
 
-    // Curățăm nota și setăm culoarea corect
     analiza.nota_estimata = String(analiza.nota_estimata).replace(/^ex:\s*/i, '').trim();
     const notaNum = parseFloat(analiza.nota_estimata);
     if (!isNaN(notaNum)) {
@@ -129,7 +120,7 @@ Raspunde STRICT cu JSON valid, fara text in afara JSON-ului, fara comentarii:
     }
 
     return json({ analiza, descriere });
- 
+
   } catch (e) {
     console.error('[analiza-test] qwen error:', e);
     return json({ error: 'Eroare la generarea analizei.' }, { status: 500 });
