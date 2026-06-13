@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+
 	const DAYS = ['Luni', 'Marți', 'Miercuri', 'Joi', 'Vineri'];
 	const HOUR_SLOTS = Array.from({ length: 9 }, (_, i) => `Ora ${i + 1}`);
 
@@ -15,13 +17,67 @@
 		'#f43f5e', '#f59e0b', '#10b981', '#06b6d4'
 	];
 
+	const DEFAULT_TIMETABLE = Object.fromEntries(
+		DAYS.map(d => [d, Object.fromEntries(HOUR_SLOTS.map((_, i) => [i, null]))])
+	);
+
+	const DEFAULT_TIMES = Array.from({ length: 9 }, (_, i) => ({
+		start: `${String(8 + i).padStart(2, '0')}:00`,
+		end: `${String(9 + i).padStart(2, '0')}:00`
+	}));
+
+	function loadFromStorage<T>(key: string, fallback: T): T {
+		if (!browser) return fallback;
+		try {
+			const raw = localStorage.getItem(key);
+			return raw ? JSON.parse(raw) : fallback;
+		} catch {
+			return fallback;
+		}
+	}
+
+	function saveToStorage(key: string, value: unknown) {
+		if (!browser) return;
+		try {
+			localStorage.setItem(key, JSON.stringify(value));
+		} catch {}
+	}
+
 	let timetable = $state<Record<string, Record<number, Entry | null>>>(
-		Object.fromEntries(DAYS.map(d => [d, Object.fromEntries(HOUR_SLOTS.map((_, i) => [i, null]))]))
+		loadFromStorage('schedulify_timetable', DEFAULT_TIMETABLE)
+	);
+
+	let slotTimes = $state<{ start: string; end: string }[]>(
+		loadFromStorage('schedulify_slot_times', DEFAULT_TIMES)
 	);
 
 	let editTarget = $state<{ day: string; slot: number } | null>(null);
 	let editData = $state({ subject: '', teacher: '', room: '', color: COLORS[0] });
 	let showModal = $state(false);
+
+	let editTimeTarget = $state<number | null>(null);
+	let editTimeData = $state({ start: '', end: '' });
+	let showTimeModal = $state(false);
+
+	function openTimeEdit(slot: number) {
+		editTimeTarget = slot;
+		editTimeData = { ...slotTimes[slot] };
+		showTimeModal = true;
+	}
+
+	function saveTime() {
+		if (editTimeTarget === null) return;
+		slotTimes[editTimeTarget] = { ...editTimeData };
+		slotTimes = [...slotTimes];
+		saveToStorage('schedulify_slot_times', slotTimes);
+		showTimeModal = false;
+		editTimeTarget = null;
+	}
+
+	function closeTimeModal() {
+		showTimeModal = false;
+		editTimeTarget = null;
+	}
 
 	function openEdit(day: string, slot: number) {
 		editTarget = { day, slot };
@@ -43,12 +99,14 @@
 			color: editData.color
 		};
 		timetable = { ...timetable };
+		saveToStorage('schedulify_timetable', timetable);
 		showModal = false;
 	}
 
 	function removeEntry(day: string, slot: number) {
 		timetable[day][slot] = null;
 		timetable = { ...timetable };
+		saveToStorage('schedulify_timetable', timetable);
 	}
 
 	function closeModal() {
@@ -74,17 +132,20 @@
 	</header>
 
 	<div class="table-wrapper">
-		<div class="orar-grid" style="grid-template-columns: 64px repeat({DAYS.length}, 1fr)">
+		<div class="orar-grid" style="grid-template-columns: 80px repeat({DAYS.length}, 1fr)">
 			<div class="cell head-corner"></div>
 			{#each DAYS as day}
 				<div class="cell head-day">{day}</div>
 			{/each}
 
 			{#each HOUR_SLOTS as label, slot}
-				<div class="cell slot-label">
+				<button class="cell slot-label" onclick={() => openTimeEdit(slot)}>
 					<span class="slot-num">{slot + 1}</span>
 					<span class="slot-text">ora</span>
-				</div>
+					<span class="slot-time">{slotTimes[slot].start}</span>
+					<span class="slot-time-end">{slotTimes[slot].end}</span>
+					<span class="slot-edit-hint">✎</span>
+				</button>
 				{#each DAYS as day}
 					{@const entry = timetable[day][slot]}
 					<button
@@ -122,7 +183,9 @@
 		<div class="modal" onclick={(e) => e.stopPropagation()}>
 			<div class="modal-header">
 				<h2 class="modal-title">
-					{editTarget ? `${editTarget.day} · Ora ${(editTarget.slot ?? 0) + 1}` : 'Adaugă oră'}
+					{editTarget
+						? `${editTarget.day} · ${slotTimes[editTarget.slot].start} – ${slotTimes[editTarget.slot].end}`
+						: 'Adaugă oră'}
 				</h2>
 				<button class="modal-close" onclick={closeModal}>×</button>
 			</div>
@@ -165,6 +228,43 @@
 				<div class="btn-group">
 					<button class="btn-ghost" onclick={closeModal}>Anulează</button>
 					<button class="btn-primary" onclick={saveEntry} disabled={!editData.subject.trim()}>Salvează</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if showTimeModal}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="modal-backdrop" onclick={closeTimeModal}>
+		<div class="modal modal-time" onclick={(e) => e.stopPropagation()}>
+			<div class="modal-header">
+				<h2 class="modal-title">
+					Editează intervalul orei {editTimeTarget !== null ? editTimeTarget + 1 : ''}
+				</h2>
+				<button class="modal-close" onclick={closeTimeModal}>×</button>
+			</div>
+
+			<div class="modal-body">
+				<div class="time-row">
+					<div class="field">
+						<label for="time-start">De la</label>
+						<input id="time-start" type="time" bind:value={editTimeData.start} />
+					</div>
+					<span class="time-sep">–</span>
+					<div class="field">
+						<label for="time-end">Până la</label>
+						<input id="time-end" type="time" bind:value={editTimeData.end} />
+					</div>
+				</div>
+			</div>
+
+			<div class="modal-footer">
+				<span></span>
+				<div class="btn-group">
+					<button class="btn-ghost" onclick={closeTimeModal}>Anulează</button>
+					<button class="btn-primary" onclick={saveTime}>Salvează</button>
 				</div>
 			</div>
 		</div>
@@ -242,9 +342,30 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: 0.1rem;
+		gap: 0.05rem;
 		border-right: 1px solid #e2e8f0;
 		background: transparent;
+		border-top: none;
+		border-left: none;
+		border-bottom: 1px solid #f1f5f9;
+		cursor: pointer;
+		transition: background 0.15s;
+		width: 100%;
+		font-family: 'DM Sans', sans-serif;
+		position: relative;
+	}
+
+	.slot-label:hover { background: #f1f5f9; }
+	.slot-label:hover .slot-edit-hint { opacity: 1; }
+
+	.slot-edit-hint {
+		position: absolute;
+		top: 6px;
+		right: 6px;
+		font-size: 0.6rem;
+		color: #94a3b8;
+		opacity: 0;
+		transition: opacity 0.15s;
 	}
 
 	.slot-num {
@@ -260,6 +381,20 @@
 		color: #cbd5e1;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
+	}
+
+	.slot-time {
+		font-size: 0.6rem;
+		color: #2563eb;
+		font-weight: 600;
+		margin-top: 0.2rem;
+		line-height: 1;
+	}
+
+	.slot-time-end {
+		font-size: 0.55rem;
+		color: #94a3b8;
+		line-height: 1;
 	}
 
 	.entry-cell {
@@ -364,6 +499,8 @@
 		overflow: hidden;
 	}
 
+	.modal-time { max-width: 340px; }
+
 	.modal-header {
 		display: flex;
 		align-items: center;
@@ -400,6 +537,21 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
+	}
+
+	.time-row {
+		display: flex;
+		align-items: flex-end;
+		gap: 0.75rem;
+	}
+
+	.time-row .field { flex: 1; }
+
+	.time-sep {
+		font-size: 1.2rem;
+		color: #cbd5e1;
+		padding-bottom: 0.6rem;
+		flex-shrink: 0;
 	}
 
 	.field {

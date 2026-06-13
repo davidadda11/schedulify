@@ -1,7 +1,18 @@
+// src/routes/api/program/+server.ts
+
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
+import { db } from '$lib/db';
+import { studyPlanItem } from '$lib/db/schema';
+import { auth } from '$lib/auth/auth';
+import { eq, and } from 'drizzle-orm';
 
 export const POST: RequestHandler = async ({ request }) => {
+  // ── Auth ────────────────────────────────────────────────────
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session?.user) return json({ error: 'Neautentificat' }, { status: 401 });
+  const userId = session.user.id;
+
   const { materii, timpZi, deadline, prioritate } = await request.json();
 
   const azi = new Date();
@@ -9,8 +20,8 @@ export const POST: RequestHandler = async ({ request }) => {
   const zileDiff = Math.max(1, Math.ceil((dataDeadline.getTime() - azi.getTime()) / (1000 * 60 * 60 * 24)));
   const nrZile = Math.min(zileDiff, 14);
 
-  const ZILE = ['Duminică', 'Luni', 'Marți', 'Miercuri', 'Joi', 'Vineri', 'Sâmbătă'];
-  const LUNI = ['ianuarie','februarie','martie','aprilie','mai','iunie','iulie','august','septembrie','octombrie','noiembrie','decembrie'];
+  const ZILE   = ['Duminică','Luni','Marți','Miercuri','Joi','Vineri','Sâmbătă'];
+  const LUNI   = ['ianuarie','februarie','martie','aprilie','mai','iunie','iulie','august','septembrie','octombrie','noiembrie','decembrie'];
   const materiiList = materii.split(',').map((m: string) => m.trim()).filter(Boolean);
 
   const program = [];
@@ -18,10 +29,14 @@ export const POST: RequestHandler = async ({ request }) => {
   for (let i = 0; i < nrZile; i++) {
     const data = new Date(azi);
     data.setDate(azi.getDate() + i);
-    const ziNume = ZILE[data.getDay()];
+
+    const ziNume  = ZILE[data.getDay()];
     const dataStr = `${data.getDate()} ${LUNI[data.getMonth()]}`;
 
-    const materieZi = materiiList[i % materiiList.length];
+    // ISO pentru DB: "2026-06-13"
+    const isoDate = data.toISOString().slice(0, 10);
+
+    const materieZi        = materiiList[i % materiiList.length];
     const materieUrmatoare = materiiList[(i + 1) % materiiList.length];
 
     const prompt = `Generează activități studiu pentru ${ziNume} ${dataStr}. Materia principală: ${materieZi}. Timp total: ${timpZi}h. Stil: ${prioritate}.
@@ -35,6 +50,8 @@ Răspunde DOAR cu JSON array fără markdown:
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
+
+    let activitati: Array<{ ora: string; activitate: string; durata: string; tip: string }> = [];
 
     try {
       const response = await fetch('http://localhost:11434/api/generate', {
@@ -50,16 +67,51 @@ Răspunde DOAR cu JSON array fără markdown:
       });
       clearTimeout(timeout);
 
-      const raw = (await response.json()).response ?? '';
+      const raw   = (await response.json()).response ?? '';
       const match = raw.match(/\[[\s\S]*\]/);
-      const activitati = match ? JSON.parse(match[0]) : [];
-
-      program.push({ zi: ziNume, data: dataStr, activitati: Array.isArray(activitati) ? activitati : [] });
+      activitati  = match ? JSON.parse(match[0]) : [];
+      if (!Array.isArray(activitati)) activitati = [];
     } catch {
       clearTimeout(timeout);
-      program.push({ zi: ziNume, data: dataStr, activitati: [] });
+    }
+
+    program.push({ zi: ziNume, data: dataStr, activitati });
+
+    // ── Salvare în DB (ștergem ziua dacă există deja, apoi reinserăm) ──
+    if (activitati.length > 0) {
+      await db.delete(studyPlanItem)
+        .where(and(eq(studyPlanItem.userId, userId), eq(studyPlanItem.date, isoDate)));
+
+      await db.insert(studyPlanItem).values(
+        activitati.map(a => ({
+          userId,
+          date: isoDate,
+          zi:   ziNume,
+          ora:         a.ora,
+          activitate:  a.activitate,
+          durata:      a.durata,
+          tip:         a.tip,
+        }))
+      );
     }
   }
 
   return json({ program });
+};
+
+// ── Endpoint PATCH pentru bifat/nebifat ─────────────────────
+export const PATCH: RequestHandler = async ({ request }) => {
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session?.user) return json({ error: 'Neautentificat' }, { status: 401 });
+
+  const { id, bifat } = await request.json();
+
+  await db.update(studyPlanItem)
+    .set({ bifat })
+    .where(and(
+      eq(studyPlanItem.id, id),
+      eq(studyPlanItem.userId, session.user.id)
+    ));
+
+  return json({ ok: true });
 };

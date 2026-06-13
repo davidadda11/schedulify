@@ -117,9 +117,24 @@ export const scheduleBlocks = pgTable('schedule_blocks', {
   source:      text('source').default('manual'),    // manual | edu24 | ai
 });
 
+export const studyPlanItem = pgTable('study_plan_items', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  userId:     text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  date:       text('date').notNull(),         // ISO "2026-06-13"
+  zi:         text('zi').notNull(),           // "Luni", "Marți", etc.
+  ora:        text('ora').notNull(),          // "16:00"
+  activitate: text('activitate').notNull(),
+  durata:     text('durata').notNull(),
+  tip:        text('tip').notNull(),          // 'studiu' | 'recapitulare' | 'pauza'
+  bifat:      boolean('bifat').notNull().default(false),
+  createdAt:  timestamp('created_at').notNull().defaultNow(),
+});
+ 
+ 
 // ── Type Exports ──────────────────────────────────────────────
 export type User          = typeof user.$inferSelect;
 export type Subject       = typeof subject.$inferSelect;
 export type StudySession  = typeof studySession.$inferSelect;
 export type Task          = typeof task.$inferSelect;
 export type ScheduleBlock = typeof scheduleBlocks.$inferSelect;
+export type StudyPlanItem = typeof studyPlanItem.$inferSelect;
