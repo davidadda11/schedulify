@@ -28,14 +28,15 @@
   "dependencies": {
     "@threlte/core": "^8.0.0",
     "@threlte/extras": "^9.0.0",
+    "@types/three": "^0.172.0",
     "better-auth": "^1.2.0",
     "drizzle-orm": "^0.40.0",
     "gsap": "^3.12.7",
-    "postgres": "^3.4.5",
-    "tesseract.js": "^6.0.0",
-    "three": "^0.172.0",
-    "@types/three": "^0.172.0",
     "lucia": "^3.2.2",
-    "oslo": "^1.2.1"
+    "oslo": "^1.2.1",
+    "postgres": "^3.4.5",
+    "sharp": "^0.35.1",
+    "tesseract.js": "^6.0.0",
+    "three": "^0.172.0"
   }
 }

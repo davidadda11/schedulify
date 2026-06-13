@@ -261,7 +261,7 @@
     --blue-600: #2563eb; --blue-500: #3b82f6;
     --blue-400: #60a5fa; --blue-200: #bfdbfe;
     font-family: 'DM Sans', sans-serif;
-    min-height: 100vh; width: 100vw; background: var(--blue-950);
+    min-height: 100vh; width: 100%; background: var(--blue-950);
     position: relative; overflow-x: hidden;
     opacity: 0; transform: translateY(16px);
     transition: opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1);
