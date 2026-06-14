@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { db } from '$db/index';
-import { users } from '$db/schema';
+import { user as users } from '$db/schema';
 import { eq, count } from 'drizzle-orm';
 
 export const load: PageServerLoad = async () => {

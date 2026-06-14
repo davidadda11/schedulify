@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { browser } from '$app/environment';
   import { onMount } from 'svelte';
 
   let { data } = $props();
@@ -17,6 +18,17 @@
   let currentYear  = $state(today.getFullYear());
   let selectedDay  = $state(today.getDate());
   let showOrarSelector = $state(false);
+
+  // ── Load from localStorage ────────────────────────────────────────
+  function loadFromStorage<T>(key: string, fallback: T): T {
+    if (!browser) return fallback;
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
 
   // ── Study plan din DB ────────────────────────────────────────
   let studyByDate = $state<Record<string, any[]>>(data.studyByDate ?? {});
@@ -47,17 +59,51 @@
 
   // ── Calendar helpers ─────────────────────────────────────────
   function dateKey(year: number, month: number, day: number) {
+    // month is 0-indexed (0=Jan, 1=Feb, ..., 11=Dec)
+    // return format: "YYYY-M-D" (matches calendar page format)
     return `${year}-${month}-${day}`;
   }
 
-  let oreleZileiCurente = $derived(
-    data.orare?.[dateKey(currentYear, currentMonth, selectedDay)] ?? ['Nicio oră configurată']
+  // ── Load timetable from localStorage ─────────────────────────
+  let timetable = $state<Record<string, Record<string, any>>>(
+    loadFromStorage('schedulify_timetable', {})
   );
+
+  // ── Load calendar events from localStorage ───────────────────
+  let calendarEvents = $state<Record<string, any[]>>(
+    loadFromStorage('schedulify_calendar_events', {})
+  );
+
+  // ── Get schedule for selected day ────────────────────────────
+  const DAYS = ['Luni', 'Marți', 'Miercuri', 'Joi', 'Vineri'];
+  
+  let oreleZileiCurente = $derived((() => {
+    const dayOfWeekNum = new Date(currentYear, currentMonth, selectedDay).getDay();
+    // Convert JS day (0=Sunday, 1=Monday, ..., 6=Saturday) to our array (0=Monday, ..., 4=Friday)
+    let dayIndex = dayOfWeekNum - 1; // 0=Mon, 1=Tue, ..., 4=Fri, 5=Sat, -1=Sun
+    
+    // Only show schedule for weekdays (Mon-Fri)
+    if (dayIndex < 0 || dayIndex > 4) {
+      return ['Weekend - fără program'];
+    }
+    
+    const dayName = DAYS[dayIndex];
+    if (!timetable[dayName]) return ['Nicio oră configurată'];
+    
+    const timeSlots = Object.entries(timetable[dayName])
+      .filter(([_, entry]) => entry !== null)
+      .map(([_, entry]) => `${entry.subject}${entry.teacher ? ' - ' + entry.teacher : ''}`);
+    
+    return timeSlots.length > 0 ? timeSlots : ['Nicio oră configurată'];
+  })());
+
+  // ── Get events for selected day ──────────────────────────────
   let evenimenteZilei = $derived(
-    data.evenimente?.[dateKey(currentYear, currentMonth, selectedDay)] ?? []
+    calendarEvents[dateKey(currentYear, currentMonth, selectedDay)] ?? []
   );
-  let temeZilei  = $derived(evenimenteZilei.filter((e: any) => e.type === 'tema' || e.type === 'teme'));
-  let testeZilei = $derived(evenimenteZilei.filter((e: any) => e.type === 'test' || e.type === 'teste'));
+
+  let temeZilei  = $derived(evenimenteZilei.filter((e: any) => e.type === 'tema'));
+  let testeZilei = $derived(evenimenteZilei.filter((e: any) => e.type === 'test'));
 
   let cells = $derived((() => {
     const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay();
@@ -91,6 +137,35 @@
 
   onMount(() => {
     setTimeout(() => { mounted = true; }, 100);
+    
+    // Reload localStorage data when page is visited
+    if (browser) {
+      timetable = loadFromStorage('schedulify_timetable', {});
+      calendarEvents = loadFromStorage('schedulify_calendar_events', {});
+    }
+
+    // Watch for storage changes from other pages (calendar, orar)
+    const handleStorageChange = () => {
+      if (browser) {
+        timetable = loadFromStorage('schedulify_timetable', {});
+        calendarEvents = loadFromStorage('schedulify_calendar_events', {});
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    // Also listen for visibility changes to reload data when returning to page
+    const handleVisibilityChange = () => {
+      if (!document.hidden && browser) {
+        timetable = loadFromStorage('schedulify_timetable', {});
+        calendarEvents = loadFromStorage('schedulify_calendar_events', {});
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   });
 </script>
 
@@ -249,12 +324,19 @@
               {#if day === null}
                 <div class="cal-day empty"></div>
               {:else}
+                {@const hasEvents = (calendarEvents[dateKey(currentYear, currentMonth, day)] ?? []).length > 0}
                 <button
                   class="cal-day"
                   class:active={selectedDay === day}
                   class:is-today={day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear()}
+                  class:has-events={hasEvents}
                   onclick={() => { selectedDay = day; showOrarSelector = false; }}
-                >{day}</button>
+                >
+                  <span>{day}</span>
+                  {#if hasEvents}
+                    <span class="event-dot"></span>
+                  {/if}
+                </button>
               {/if}
             {/each}
           </div>
@@ -272,19 +354,19 @@
   .page {
     --blue-950: #0a1628; --blue-600: #2563eb; --blue-200: #bfdbfe;
     font-family: 'DM Sans', sans-serif;
-    min-height: 100vh; width: 100%;
-    background: var(--blue-950);
-    position: relative; overflow-y: auto;
+    width: 100%;
+    background: transparent;
+    position: relative; overflow: visible;
   }
 
-  .bg-blob { position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; }
+  .bg-blob { position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; display: none; }
   .blob-1 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(37,99,235,0.25) 0%, transparent 70%); top: -100px; left: -100px; animation: blobFloat 9s ease-in-out infinite; }
   .blob-2 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(96,165,250,0.15) 0%, transparent 70%); bottom: -100px; right: 10%; animation: blobFloat 12s ease-in-out infinite reverse; }
   .blob-3 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%); top: 40%; left: 40%; animation: blobFloat 7s ease-in-out infinite 3s; }
-  .grid-overlay { position: absolute; inset: 0; background-image: linear-gradient(rgba(96,165,250,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(96,165,250,0.04) 1px, transparent 1px); background-size: 60px 60px; pointer-events: none; z-index: 0; }
+  .grid-overlay { position: fixed; inset: 0; background-image: linear-gradient(rgba(96,165,250,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(96,165,250,0.04) 1px, transparent 1px); background-size: 60px 60px; pointer-events: none; z-index: 0; display: none; }
   @keyframes blobFloat { 0%, 100% { transform: translate(0,0) scale(1); } 33% { transform: translate(30px,-20px) scale(1.05); } 66% { transform: translate(-15px,15px) scale(0.97); } }
 
-  .dashboard-container { position: relative; z-index: 1; width: 100%; max-width: 1200px; margin: 0 auto; padding: 24px; opacity: 0; transform: translateY(20px); transition: all 0.8s cubic-bezier(0.16,1,0.3,1); }
+  .dashboard-container { position: relative; z-index: 1; width: 100%; padding: 24px; opacity: 0; transform: translateY(20px); transition: all 0.8s cubic-bezier(0.16,1,0.3,1); }
   .page.mounted .dashboard-container { opacity: 1; transform: translateY(0); }
 
   .main-content { display: flex; flex-direction: column; gap: 24px; width: 100%; }
@@ -361,11 +443,13 @@
   /* ── Mini Calendar ───────────────────────────────────────── */
   .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
   .cal-day-header { font-size: 11px; font-weight: 700; color: #94a3b8; padding-bottom: 4px; }
-  .cal-day { padding: 10px 4px; font-size: 13px; color: #0a1628; border-radius: 10px; cursor: pointer; border: none; background: transparent; font-family: 'DM Sans', sans-serif; font-weight: 500; }
+  .cal-day { padding: 10px 4px; font-size: 13px; color: #0a1628; border-radius: 10px; cursor: pointer; border: none; background: transparent; font-family: 'DM Sans', sans-serif; font-weight: 500; position: relative; display: flex; align-items: center; justify-content: center; }
   .cal-day:not(.empty):hover { background: #eff6ff; color: var(--blue-600); }
   .cal-day.active { background: var(--blue-600) !important; color: white !important; font-weight: bold; }
   .cal-day.is-today { background: #dbeafe; color: var(--blue-600); font-weight: 700; }
+  .cal-day.has-events::after { content: ''; position: absolute; bottom: 2px; width: 6px; height: 6px; background: #ef4444; border-radius: 50%; }
   .cal-day.empty { pointer-events: none; }
+  .event-dot { display: none; }
   .nav-mini { background: #f1f5f9; border: none; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; color: #475569; }
   .nav-mini:hover { background: #e2e8f0; }
 
