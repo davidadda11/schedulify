@@ -46,9 +46,6 @@
         </nav>
 
         <div class="sidebar-footer">
-            <div class="coin-badge">
-                🪙 <strong>25 Coins</strong>
-            </div>
             <div class="account-wrapper">
                 <button class="account-btn" onclick={() => showMenu = !showMenu}>
                     <div class="avatar"></div>
@@ -142,18 +139,6 @@
         display: flex;
         flex-direction: column;
         gap: 12px;
-    }
-
-    .coin-badge {
-        background: #fffbeb;
-        color: #d97706;
-        padding: 12px 16px;
-        border-radius: 12px;
-        font-size: 14px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        border: 1px solid #fde68a;
     }
 
     .account-wrapper {
