@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
-
 	const DAYS = ['Luni', 'Marți', 'Miercuri', 'Joi', 'Vineri'];
+	const HOUR_SLOTS = Array.from({ length: 9 }, (_, i) => `Ora ${i + 1}`);
 
 	type Entry = {
 		id: string;
@@ -11,97 +10,41 @@
 		color: string;
 	};
 
-	type TimeSlot = { id: string; start: string; end: string };
-
 	const COLORS = [
 		'#3b82f6', '#6366f1', '#8b5cf6', '#ec4899',
 		'#f43f5e', '#f59e0b', '#10b981', '#06b6d4'
 	];
 
-	const DEFAULT_TIMETABLE: Record<string, Record<string, Entry | null>> = {};
-	const DEFAULT_TIMES: TimeSlot[] = [];
-
-	function loadFromStorage<T>(key: string, fallback: T): T {
-		if (!browser) return fallback;
-		try {
-			const raw = localStorage.getItem(key);
-			return raw ? JSON.parse(raw) : fallback;
-		} catch {
-			return fallback;
-		}
-	}
-
-	function saveToStorage(key: string, value: unknown) {
-		if (!browser) return;
-		try {
-			localStorage.setItem(key, JSON.stringify(value));
-		} catch {}
-	}
-
-	let timeSlots = $state<TimeSlot[]>(
-		loadFromStorage('schedulify_slot_times', DEFAULT_TIMES)
+	let timetable = $state<Record<string, Record<number, Entry | null>>>(
+		Object.fromEntries(DAYS.map(d => [d, Object.fromEntries(HOUR_SLOTS.map((_, i) => [i, null]))]))
 	);
 
-	let timetable = $state<Record<string, Record<string, Entry | null>>>(
-		loadFromStorage('schedulify_timetable', DEFAULT_TIMETABLE)
-	);
-
-	let editTarget = $state<{ slotId: string; day: string } | null>(null);
+	let editTarget = $state<{ day: string; slot: number } | null>(null);
 	let editData = $state({ subject: '', teacher: '', room: '', color: COLORS[0] });
 	let showModal = $state(false);
 
-	let editTimeTarget = $state<string | null>(null);
+	// Ore implicite: 8:00 - 9:00, 9:00 - 10:00, etc.
+	let slotTimes = $state<{ start: string; end: string }[]>(
+		Array.from({ length: 9 }, (_, i) => ({
+			start: `${String(8 + i).padStart(2, '0')}:00`,
+			end: `${String(9 + i).padStart(2, '0')}:00`
+		}))
+	);
+
+	let editTimeTarget = $state<number | null>(null);
 	let editTimeData = $state({ start: '', end: '' });
 	let showTimeModal = $state(false);
 
-	let showAddSlotModal = $state(false);
-	let newSlotTime = $state({ start: '08:00', end: '09:00' });
-
-	function addTimeSlot() {
-		if (!newSlotTime.start || !newSlotTime.end) return;
-		const slotId = crypto.randomUUID();
-		const slot: TimeSlot = { id: slotId, start: newSlotTime.start, end: newSlotTime.end };
-		timeSlots = [...timeSlots, slot];
-		
-		// Initialize timetable for this slot
-		DAYS.forEach(day => {
-			if (!timetable[day]) timetable[day] = {};
-			timetable[day][slotId] = null;
-		});
-		timetable = { ...timetable };
-		
-		saveToStorage('schedulify_slot_times', timeSlots);
-		saveToStorage('schedulify_timetable', timetable);
-		showAddSlotModal = false;
-		newSlotTime = { start: '08:00', end: '09:00' };
-	}
-
-	function removeTimeSlot(slotId: string) {
-		timeSlots = timeSlots.filter(s => s.id !== slotId);
-		Object.keys(timetable).forEach(day => {
-			delete timetable[day][slotId];
-		});
-		timetable = { ...timetable };
-		saveToStorage('schedulify_slot_times', timeSlots);
-		saveToStorage('schedulify_timetable', timetable);
-	}
-
-	function openTimeEdit(slotId: string) {
-		const slot = timeSlots.find(s => s.id === slotId);
-		if (!slot) return;
-		editTimeTarget = slotId;
-		editTimeData = { ...slot };
+	function openTimeEdit(slot: number) {
+		editTimeTarget = slot;
+		editTimeData = { ...slotTimes[slot] };
 		showTimeModal = true;
 	}
 
 	function saveTime() {
-		if (!editTimeTarget || !editTimeData.start || !editTimeData.end) return;
-		const idx = timeSlots.findIndex(s => s.id === editTimeTarget);
-		if (idx !== -1) {
-			timeSlots[idx] = { ...timeSlots[idx], start: editTimeData.start, end: editTimeData.end };
-			timeSlots = [...timeSlots];
-			saveToStorage('schedulify_slot_times', timeSlots);
-		}
+		if (editTimeTarget === null) return;
+		slotTimes[editTimeTarget] = { ...editTimeData };
+		slotTimes = [...slotTimes];
 		showTimeModal = false;
 		editTimeTarget = null;
 	}
@@ -111,9 +54,9 @@
 		editTimeTarget = null;
 	}
 
-	function openEdit(slotId: string, day: string) {
-		editTarget = { slotId, day };
-		const existing = timetable[day]?.[slotId];
+	function openEdit(day: string, slot: number) {
+		editTarget = { day, slot };
+		const existing = timetable[day][slot];
 		editData = existing
 			? { subject: existing.subject, teacher: existing.teacher, room: existing.room, color: existing.color }
 			: { subject: '', teacher: '', room: '', color: COLORS[Math.floor(Math.random() * COLORS.length)] };
@@ -122,9 +65,8 @@
 
 	function saveEntry() {
 		if (!editTarget || !editData.subject.trim()) return;
-		const { slotId, day } = editTarget;
-		if (!timetable[day]) timetable[day] = {};
-		timetable[day][slotId] = {
+		const { day, slot } = editTarget;
+		timetable[day][slot] = {
 			id: crypto.randomUUID(),
 			subject: editData.subject.trim(),
 			teacher: editData.teacher.trim(),
@@ -132,16 +74,12 @@
 			color: editData.color
 		};
 		timetable = { ...timetable };
-		saveToStorage('schedulify_timetable', timetable);
 		showModal = false;
 	}
 
-	function removeEntry(slotId: string, day: string) {
-		if (timetable[day]) {
-			timetable[day][slotId] = null;
-			timetable = { ...timetable };
-			saveToStorage('schedulify_timetable', timetable);
-		}
+	function removeEntry(day: string, slot: number) {
+		timetable[day][slot] = null;
+		timetable = { ...timetable };
 	}
 
 	function closeModal() {
@@ -164,62 +102,51 @@
 					: 'Apasă pe orice celulă ca să adaugi o oră'}
 			</p>
 		</div>
-		<button class="add-slot-btn" onclick={() => showAddSlotModal = true}>+ Adaugă interval</button>
 	</header>
 
-	{#if timeSlots.length === 0}
-		<div class="empty-state">
-			<div class="empty-icon">📅</div>
-			<p class="empty-title">Nu ai nici un interval adăugat</p>
-			<p class="empty-desc">Creează-ți orarul personalizat adăugând intervale de ore</p>
-			<button class="btn-primary" onclick={() => showAddSlotModal = true}>Adaugă interval</button>
-		</div>
-	{:else}
-		<div class="schedules-container">
-			{#each timeSlots as slot (slot.id)}
-				<div class="slot-section">
-					<div class="slot-header">
-						<div class="slot-time-display">
-							<span class="time-badge">{slot.start} – {slot.end}</span>
-						</div>
-						<div class="slot-actions">
-							<button class="slot-edit" onclick={() => openTimeEdit(slot.id)} title="Editează intervalul">✎</button>
-							<button class="slot-delete" onclick={() => removeTimeSlot(slot.id)} title="Șterge intervalul">×</button>
-						</div>
-					</div>
-					<div class="slot-grid">
-						{#each DAYS as day}
-							{@const entry = timetable[day]?.[slot.id]}
+	<div class="table-wrapper">
+		<div class="orar-grid" style="grid-template-columns: 80px repeat({DAYS.length}, 1fr)">
+			<div class="cell head-corner"></div>
+			{#each DAYS as day}
+				<div class="cell head-day">{day}</div>
+			{/each}
+
+			{#each HOUR_SLOTS as label, slot}
+				<button class="cell slot-label" onclick={() => openTimeEdit(slot)}>
+					<span class="slot-num">{slot + 1}</span>
+					<span class="slot-text">ora</span>
+					<span class="slot-time">{slotTimes[slot].start}</span>
+					<span class="slot-time-end">{slotTimes[slot].end}</span>
+					<span class="slot-edit-hint">✎</span>
+				</button>
+				{#each DAYS as day}
+					{@const entry = timetable[day][slot]}
+					<button
+						class="cell entry-cell"
+						class:has-entry={!!entry}
+						onclick={() => openEdit(day, slot)}
+						style={entry ? `--entry-color: ${entry.color}` : ''}
+					>
+						{#if entry}
+							<span class="entry-dot" style="background:{entry.color}"></span>
+							<div class="entry-body">
+								<span class="entry-subject">{entry.subject}</span>
+								{#if entry.teacher}<span class="entry-meta">{entry.teacher}</span>{/if}
+								{#if entry.room}<span class="entry-room">📍 {entry.room}</span>{/if}
+							</div>
 							<button
-								class="day-cell"
-								class:has-entry={!!entry}
-								onclick={() => openEdit(slot.id, day)}
-								style={entry ? `--entry-color: ${entry.color}` : ''}
-								title={day}
-							>
-								{#if entry}
-									<div class="entry-content">
-										<span class="entry-dot" style="background:{entry.color}"></span>
-										<div class="entry-info">
-											<span class="entry-subject">{entry.subject}</span>
-											{#if entry.teacher}<span class="entry-meta">{entry.teacher}</span>{/if}
-										</div>
-										<button
-											class="remove-btn"
-											onclick={(e) => { e.stopPropagation(); removeEntry(slot.id, day); }}
-											title="Șterge"
-										>×</button>
-									</div>
-								{:else}
-									<span class="add-hint">+</span>
-								{/if}
-							</button>
-						{/each}
-					</div>
-				</div>
+								class="remove-btn"
+								onclick={(e) => { e.stopPropagation(); removeEntry(day, slot); }}
+								aria-label="Șterge"
+							>×</button>
+						{:else}
+							<span class="add-hint">+</span>
+						{/if}
+					</button>
+				{/each}
 			{/each}
 		</div>
-	{/if}
+	</div>
 </div>
 
 {#if showModal}
@@ -229,12 +156,9 @@
 		<div class="modal" onclick={(e) => e.stopPropagation()}>
 			<div class="modal-header">
 				<h2 class="modal-title">
-					{#if editTarget}
-						{@const slot = timeSlots.find(s => s.id === editTarget.slotId)}
-						{editTarget.day} · {slot?.start} – {slot?.end}
-					{:else}
-						Adaugă oră
-					{/if}
+					{editTarget
+						? `${editTarget.day} · ${slotTimes[editTarget.slot].start} – ${slotTimes[editTarget.slot].end}`
+						: 'Adaugă oră'}
 				</h2>
 				<button class="modal-close" onclick={closeModal}>×</button>
 			</div>
@@ -269,8 +193,8 @@
 			</div>
 
 			<div class="modal-footer">
-				{#if editTarget && timetable[editTarget.day]?.[editTarget.slotId]}
-					<button class="btn-danger" onclick={() => { removeEntry(editTarget!.slotId, editTarget!.day); closeModal(); }}>Șterge ora</button>
+				{#if editTarget && timetable[editTarget.day][editTarget.slot]}
+					<button class="btn-danger" onclick={() => { removeEntry(editTarget!.day, editTarget!.slot); closeModal(); }}>Șterge ora</button>
 				{:else}
 					<span></span>
 				{/if}
@@ -289,7 +213,9 @@
 	<div class="modal-backdrop" onclick={closeTimeModal}>
 		<div class="modal modal-time" onclick={(e) => e.stopPropagation()}>
 			<div class="modal-header">
-				<h2 class="modal-title">Editează intervalul</h2>
+				<h2 class="modal-title">
+					Editează intervalul orei {editTimeTarget !== null ? editTimeTarget + 1 : ''}
+				</h2>
 				<button class="modal-close" onclick={closeTimeModal}>×</button>
 			</div>
 
@@ -318,57 +244,13 @@
 	</div>
 {/if}
 
-{#if showAddSlotModal}
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="modal-backdrop" onclick={() => showAddSlotModal = false}>
-		<div class="modal modal-time" onclick={(e) => e.stopPropagation()}>
-			<div class="modal-header">
-				<h2 class="modal-title">Adaugă interval de ore</h2>
-				<button class="modal-close" onclick={() => showAddSlotModal = false}>×</button>
-			</div>
-
-			<div class="modal-body">
-				<div class="time-row">
-					<div class="field">
-						<label for="new-start">De la</label>
-						<input id="new-start" type="time" bind:value={newSlotTime.start} />
-					</div>
-					<span class="time-sep">–</span>
-					<div class="field">
-						<label for="new-end">Până la</label>
-						<input id="new-end" type="time" bind:value={newSlotTime.end} />
-					</div>
-				</div>
-			</div>
-
-			<div class="modal-footer">
-				<span></span>
-				<div class="btn-group">
-					<button class="btn-ghost" onclick={() => showAddSlotModal = false}>Anulează</button>
-					<button class="btn-primary" onclick={addTimeSlot}>Adaugă</button>
-				</div>
-			</div>
-		</div>
-	</div>
-{/if}
-
 <style>
 	.orar-page {
 		max-width: 1100px;
 		padding-bottom: 4rem;
 	}
 
-	.page-header {
-		margin-bottom: 1.75rem;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.page-header > div {
-		flex: 1;
-	}
+	.page-header { margin-bottom: 1.75rem; }
 
 	.page-title {
 		font-family: 'Syne', sans-serif;
@@ -385,191 +267,150 @@
 		margin: 0;
 	}
 
-	.add-slot-btn {
-		background: #2563eb;
-		border: none;
-		color: white;
-		padding: 0.65rem 1.25rem;
-		border-radius: 12px;
-		font-size: 0.85rem;
-		font-weight: 600;
-		cursor: pointer;
-		white-space: nowrap;
-		font-family: 'DM Sans', sans-serif;
-		transition: background 0.15s;
-	}
-
-	.add-slot-btn:hover {
-		background: #1d4ed8;
-	}
-
-	.empty-state {
+	.table-wrapper {
 		background: rgba(255, 255, 255, 0.95);
 		border-radius: 24px;
-		border: 2px dashed rgba(37, 99, 235, 0.2);
-		padding: 3rem 2rem;
-		text-align: center;
-		box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.1);
+		box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.1), 0 16px 40px rgba(10, 22, 40, 0.4);
+		overflow-x: auto;
 	}
 
-	.empty-icon {
-		font-size: 3rem;
-		margin-bottom: 1rem;
-	}
-
-	.empty-title {
-		font-size: 1.1rem;
-		font-weight: 700;
-		color: #0f2347;
-		margin: 0 0 0.5rem;
-	}
-
-	.empty-desc {
-		font-size: 0.9rem;
-		color: #94a3b8;
-		margin-bottom: 1.5rem;
-	}
-
-	.empty-state .btn-primary {
-		background: #2563eb;
-		border: none;
-		color: white;
-		padding: 0.65rem 1.5rem;
-		border-radius: 12px;
-		font-size: 0.85rem;
-		font-weight: 600;
-		cursor: pointer;
-		font-family: 'DM Sans', sans-serif;
-		transition: background 0.15s;
-	}
-
-	.empty-state .btn-primary:hover {
-		background: #1d4ed8;
-	}
-
-	.schedules-container {
-		display: flex;
-		flex-direction: column;
-		gap: 1.5rem;
-	}
-
-	.slot-section {
-		background: rgba(255, 255, 255, 0.95);
-		border-radius: 16px;
-		overflow: hidden;
-		box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.1), 0 8px 24px rgba(10, 22, 40, 0.2);
-	}
-
-	.slot-header {
-		background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-		padding: 1rem 1.5rem;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		border-bottom: 1px solid #e2e8f0;
-	}
-
-	.slot-time-display {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.time-badge {
-		background: #2563eb;
-		color: white;
-		padding: 0.45rem 1rem;
-		border-radius: 8px;
-		font-size: 0.85rem;
-		font-weight: 600;
-		font-family: 'Courier New', monospace;
-	}
-
-	.slot-actions {
-		display: flex;
-		gap: 0.5rem;
-	}
-
-	.slot-edit,
-	.slot-delete {
-		background: transparent;
-		border: none;
-		width: 32px;
-		height: 32px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 8px;
-		cursor: pointer;
-		font-size: 1rem;
-		transition: background 0.15s, color 0.15s;
-		color: #94a3b8;
-	}
-
-	.slot-edit:hover {
-		background: #e2e8f0;
-		color: #2563eb;
-	}
-
-	.slot-delete:hover {
-		background: #fee2e2;
-		color: #ef4444;
-	}
-
-	.slot-grid {
+	.orar-grid {
 		display: grid;
-		grid-template-columns: repeat(5, 1fr);
-		gap: 0;
+		min-width: 560px;
 	}
 
-	.day-cell {
-		background: transparent;
-		border: 1px solid #e2e8f0;
-		cursor: pointer;
-		padding: 0.85rem;
-		text-align: left;
-		transition: background 0.15s;
-		font-family: 'DM Sans', sans-serif;
-		min-height: 90px;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
+	.cell {
+		padding: 0.6rem 0.5rem;
+		border-bottom: 1px solid #f1f5f9;
+		border-right: 1px solid #f1f5f9;
+		min-height: 72px;
 		position: relative;
 	}
 
-	.day-cell:hover {
-		background: #f8fafc;
-	}
+	.cell:last-child { border-right: none; }
 
-	.day-cell.has-entry {
+	.head-corner {
 		background: transparent;
+		border-bottom: 1px solid #e2e8f0;
+		min-height: 44px;
 	}
 
-	.entry-content {
+	.head-day {
+		font-size: 0.72rem;
+		font-weight: 700;
+		color: #94a3b8;
+		text-align: center;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: transparent;
+		border-bottom: 1px solid #e2e8f0;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		min-height: 44px;
+	}
+
+	.slot-label {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.05rem;
+		border-right: 1px solid #e2e8f0;
+		background: transparent;
+		border-top: none;
+		border-left: none;
+		border-bottom: 1px solid #f1f5f9;
+		cursor: pointer;
+		transition: background 0.15s;
+		width: 100%;
+		font-family: 'DM Sans', sans-serif;
+		position: relative;
+	}
+
+	.slot-label:hover {
+		background: #f1f5f9;
+	}
+
+	.slot-label:hover .slot-edit-hint {
+		opacity: 1;
+	}
+
+	.slot-edit-hint {
+		position: absolute;
+		top: 6px;
+		right: 6px;
+		font-size: 0.6rem;
+		color: #94a3b8;
+		opacity: 0;
+		transition: opacity 0.15s;
+	}
+
+	.slot-num {
+		font-family: 'Syne', sans-serif;
+		font-size: 1.1rem;
+		font-weight: 800;
+		color: #cbd5e1;
+		line-height: 1;
+	}
+
+	.slot-text {
+		font-size: 0.55rem;
+		color: #cbd5e1;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.slot-time {
+		font-size: 0.6rem;
+		color: #2563eb;
+		font-weight: 600;
+		margin-top: 0.2rem;
+		line-height: 1;
+	}
+
+	.slot-time-end {
+		font-size: 0.55rem;
+		color: #94a3b8;
+		line-height: 1;
+	}
+
+	.entry-cell {
+		background: transparent;
+		border: none;
+		cursor: pointer;
+		text-align: left;
+		transition: background 0.15s;
 		display: flex;
 		align-items: flex-start;
 		gap: 0.5rem;
-		flex: 1;
+		padding: 0.65rem 0.6rem;
+		font-family: 'DM Sans', sans-serif;
+		width: 100%;
 	}
+
+	.entry-cell:hover { background: #f8fafc; }
+	.entry-cell.has-entry { background: transparent; }
+	.entry-cell.has-entry:hover { background: #f1f5f9; }
 
 	.entry-dot {
 		width: 3px;
 		border-radius: 2px;
+		align-self: stretch;
 		flex-shrink: 0;
-		height: 100%;
-		min-height: 30px;
+		min-height: 36px;
 	}
 
-	.entry-info {
+	.entry-body {
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
+		gap: 0.15rem;
 		flex: 1;
 		min-width: 0;
 	}
 
 	.entry-subject {
-		font-size: 0.8rem;
+		font-size: 0.82rem;
 		font-weight: 700;
 		color: #0f2347;
 		white-space: nowrap;
@@ -578,50 +419,42 @@
 	}
 
 	.entry-meta {
-		font-size: 0.65rem;
+		font-size: 0.7rem;
 		color: #94a3b8;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
-	.add-hint {
-		font-size: 1.2rem;
+	.entry-room {
+		font-size: 0.65rem;
 		color: #cbd5e1;
-		position: absolute;
-		left: 50%;
-		top: 50%;
-		transform: translate(-50%, -50%);
+	}
+
+	.add-hint {
+		font-size: 1.1rem;
+		color: #cbd5e1;
+		margin: auto;
 		transition: color 0.15s;
 	}
 
-	.day-cell:hover .add-hint {
-		color: #2563eb;
-	}
+	.entry-cell:hover .add-hint { color: #94a3b8; }
 
 	.remove-btn {
 		background: none;
 		border: none;
 		color: #cbd5e1;
-		font-size: 0.9rem;
+		font-size: 1rem;
 		cursor: pointer;
 		padding: 0;
 		line-height: 1;
 		flex-shrink: 0;
 		opacity: 0;
 		transition: opacity 0.15s, color 0.15s;
-		position: absolute;
-		right: 0.5rem;
-		top: 0.5rem;
 	}
 
-	.entry-content:hover .remove-btn {
-		opacity: 1;
-	}
-
-	.remove-btn:hover {
-		color: #ef4444;
-	}
+	.entry-cell:hover .remove-btn { opacity: 1; }
+	.remove-btn:hover { color: #ef4444 !important; }
 
 	.modal-backdrop {
 		position: fixed;
@@ -675,12 +508,9 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		transition: background 0.15s;
 	}
 
-	.modal-close:hover {
-		background: #e2e8f0;
-	}
+	.modal-close:hover { background: #e2e8f0; }
 
 	.modal-body {
 		padding: 1.25rem 1.5rem;
@@ -695,9 +525,7 @@
 		gap: 0.75rem;
 	}
 
-	.time-row .field {
-		flex: 1;
-	}
+	.time-row .field { flex: 1; }
 
 	.time-sep {
 		font-size: 1.2rem;
@@ -734,19 +562,10 @@
 		font-family: 'DM Sans', sans-serif;
 	}
 
-	input:focus {
-		border-color: #2563eb;
-	}
+	input:focus { border-color: #2563eb; }
+	input::placeholder { color: #cbd5e1; }
 
-	input::placeholder {
-		color: #cbd5e1;
-	}
-
-	.color-picker {
-		display: flex;
-		gap: 0.5rem;
-		flex-wrap: wrap;
-	}
+	.color-picker { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
 	.color-swatch {
 		width: 26px;
@@ -757,14 +576,8 @@
 		transition: transform 0.15s, border-color 0.15s;
 	}
 
-	.color-swatch:hover {
-		transform: scale(1.15);
-	}
-
-	.color-swatch.active {
-		border-color: #0f2347;
-		transform: scale(1.15);
-	}
+	.color-swatch:hover { transform: scale(1.15); }
+	.color-swatch.active { border-color: #0f2347; transform: scale(1.15); }
 
 	.modal-footer {
 		display: flex;
@@ -774,10 +587,7 @@
 		gap: 0.5rem;
 	}
 
-	.btn-group {
-		display: flex;
-		gap: 0.5rem;
-	}
+	.btn-group { display: flex; gap: 0.5rem; }
 
 	.btn-primary {
 		background: #2563eb;
@@ -792,14 +602,8 @@
 		font-family: 'DM Sans', sans-serif;
 	}
 
-	.btn-primary:hover:not(:disabled) {
-		background: #1d4ed8;
-	}
-
-	.btn-primary:disabled {
-		opacity: 0.4;
-		cursor: not-allowed;
-	}
+	.btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+	.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
 
 	.btn-ghost {
 		background: #f1f5f9;
@@ -813,9 +617,7 @@
 		font-family: 'DM Sans', sans-serif;
 	}
 
-	.btn-ghost:hover {
-		background: #e2e8f0;
-	}
+	.btn-ghost:hover { background: #e2e8f0; }
 
 	.btn-danger {
 		background: none;
@@ -827,28 +629,10 @@
 		font-family: 'DM Sans', sans-serif;
 	}
 
-	.btn-danger:hover {
-		opacity: 0.7;
-	}
-
-	@media (max-width: 768px) {
-		.slot-grid {
-			grid-template-columns: repeat(3, 1fr);
-		}
-
-		.page-header {
-			flex-direction: column;
-			gap: 1rem;
-		}
-
-		.add-slot-btn {
-			width: 100%;
-		}
-	}
+	.btn-danger:hover { opacity: 0.7; }
 
 	@media (max-width: 640px) {
-		.slot-grid {
-			grid-template-columns: repeat(2, 1fr);
-		}
+		.head-day { font-size: 0.6rem; }
+		.entry-subject { font-size: 0.72rem; }
 	}
 </style>
