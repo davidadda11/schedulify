@@ -115,3 +115,45 @@ export const PATCH: RequestHandler = async ({ request }) => {
 
   return json({ ok: true });
 };
+
+// ── Endpoint PUT pentru adăugare activitate manuală ──────────
+export const PUT: RequestHandler = async ({ request }) => {
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session?.user) return json({ error: 'Neautentificat' }, { status: 401 });
+  const userId = session.user.id;
+
+  const { date, zi, ora, activitate, durata, tip } = await request.json();
+
+  if (!date || !activitate?.trim()) {
+    return json({ error: 'Date invalide' }, { status: 400 });
+  }
+
+  const [item] = await db.insert(studyPlanItem).values({
+    userId,
+    date,
+    zi,
+    ora,
+    activitate: activitate.trim(),
+    durata,
+    tip,
+    bifat: false,
+  }).returning();
+
+  return json({ ok: true, item });
+};
+
+// ── Endpoint DELETE pentru ștergere activitate ───────────────
+export const DELETE: RequestHandler = async ({ request }) => {
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session?.user) return json({ error: 'Neautentificat' }, { status: 401 });
+
+  const { id } = await request.json();
+
+  await db.delete(studyPlanItem)
+    .where(and(
+      eq(studyPlanItem.id, id),
+      eq(studyPlanItem.userId, session.user.id)
+    ));
+
+  return json({ ok: true });
+};

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+
 	const DAYS = ['Luni', 'Marți', 'Miercuri', 'Joi', 'Vineri'];
 	const HOUR_SLOTS = Array.from({ length: 9 }, (_, i) => `Ora ${i + 1}`);
 
@@ -19,11 +21,6 @@
 		Object.fromEntries(DAYS.map(d => [d, Object.fromEntries(HOUR_SLOTS.map((_, i) => [i, null]))]))
 	);
 
-	let editTarget = $state<{ day: string; slot: number } | null>(null);
-	let editData = $state({ subject: '', teacher: '', room: '', color: COLORS[0] });
-	let showModal = $state(false);
-
-	// Ore implicite: 8:00 - 9:00, 9:00 - 10:00, etc.
 	let slotTimes = $state<{ start: string; end: string }[]>(
 		Array.from({ length: 9 }, (_, i) => ({
 			start: `${String(8 + i).padStart(2, '0')}:00`,
@@ -31,20 +28,58 @@
 		}))
 	);
 
+	let editTarget = $state<{ day: string; slot: number } | null>(null);
+	let editData = $state({ subject: '', teacher: '', room: '', color: COLORS[0] });
+	let showModal = $state(false);
+
 	let editTimeTarget = $state<number | null>(null);
 	let editTimeData = $state({ start: '', end: '' });
 	let showTimeModal = $state(false);
 
+	let loaded = $state(false);
+
+	onMount(() => {
+    const savedTimetable = localStorage.getItem('schedulify_timetable');
+    if (savedTimetable) {
+        try { timetable = JSON.parse(savedTimetable); } catch {}
+    }
+
+    const savedTimes = localStorage.getItem('schedulify_slot_times');
+    if (savedTimes) {
+        try {
+            const parsed = JSON.parse(savedTimes);
+            slotTimes = Array.from({ length: 9 }, (_, i) => parsed[i] ?? {
+                start: `${String(8 + i).padStart(2, '0')}:00`,
+                end: `${String(9 + i).padStart(2, '0')}:00`
+            });
+        } catch {}
+    }
+
+    loaded = true;
+	});
+
+	$effect(() => {
+		if (!loaded) return;
+		localStorage.setItem('schedulify_timetable', JSON.stringify(timetable));
+	});
+
+	$effect(() => {
+		if (!loaded) return;
+		localStorage.setItem('schedulify_slot_times', JSON.stringify(slotTimes));
+	});
+
 	function openTimeEdit(slot: number) {
+		editTimeData = { start: slotTimes[slot].start, end: slotTimes[slot].end };
 		editTimeTarget = slot;
-		editTimeData = { ...slotTimes[slot] };
 		showTimeModal = true;
 	}
 
 	function saveTime() {
-		if (editTimeTarget === null) return;
-		slotTimes[editTimeTarget] = { ...editTimeData };
-		slotTimes = [...slotTimes];
+		const idx = editTimeTarget;
+		if (idx === null) return;
+		slotTimes = slotTimes.map((s, i) =>
+			i === idx ? { start: editTimeData.start, end: editTimeData.end } : { ...s }
+		);
 		showTimeModal = false;
 		editTimeTarget = null;
 	}
@@ -92,6 +127,8 @@
 	);
 </script>
 
+<svelte:body />
+
 <div class="orar-page">
 	<header class="page-header">
 		<div>
@@ -111,7 +148,7 @@
 				<div class="cell head-day">{day}</div>
 			{/each}
 
-			{#each HOUR_SLOTS as label, slot}
+			{#each HOUR_SLOTS as _label, slot}
 				<button class="cell slot-label" onclick={() => openTimeEdit(slot)}>
 					<span class="slot-num">{slot + 1}</span>
 					<span class="slot-text">ora</span>
@@ -134,11 +171,14 @@
 								{#if entry.teacher}<span class="entry-meta">{entry.teacher}</span>{/if}
 								{#if entry.room}<span class="entry-room">📍 {entry.room}</span>{/if}
 							</div>
-							<button
+							<span
 								class="remove-btn"
-								onclick={(e) => { e.stopPropagation(); removeEntry(day, slot); }}
+								role="button"
+								tabindex="0"
 								aria-label="Șterge"
-							>×</button>
+								onclick={(e) => { e.stopPropagation(); removeEntry(day, slot); }}
+								onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); removeEntry(day, slot); }}}
+							>×</span>
 						{:else}
 							<span class="add-hint">+</span>
 						{/if}
@@ -177,8 +217,8 @@
 					<input id="room" type="text" placeholder="ex: 214" bind:value={editData.room} />
 				</div>
 				<div class="field">
-					<label>Culoare</label>
-					<div class="color-picker">
+					<label for="color-picker-label">Culoare</label>
+					<div class="color-picker" id="color-picker-label">
 						{#each COLORS as c}
 							<button
 								class="color-swatch"
@@ -328,13 +368,8 @@
 		position: relative;
 	}
 
-	.slot-label:hover {
-		background: #f1f5f9;
-	}
-
-	.slot-label:hover .slot-edit-hint {
-		opacity: 1;
-	}
+	.slot-label:hover { background: #f1f5f9; }
+	.slot-label:hover .slot-edit-hint { opacity: 1; }
 
 	.slot-edit-hint {
 		position: absolute;
@@ -441,20 +476,18 @@
 	.entry-cell:hover .add-hint { color: #94a3b8; }
 
 	.remove-btn {
-		background: none;
-		border: none;
 		color: #cbd5e1;
 		font-size: 1rem;
 		cursor: pointer;
-		padding: 0;
 		line-height: 1;
 		flex-shrink: 0;
 		opacity: 0;
 		transition: opacity 0.15s, color 0.15s;
+		user-select: none;
 	}
 
 	.entry-cell:hover .remove-btn { opacity: 1; }
-	.remove-btn:hover { color: #ef4444 !important; }
+	.remove-btn:hover { color: #ef4444; }
 
 	.modal-backdrop {
 		position: fixed;
@@ -464,7 +497,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		z-index: 100;
+		z-index: 9999;
 		padding: 1rem;
 	}
 
@@ -477,9 +510,7 @@
 		overflow: hidden;
 	}
 
-	.modal-time {
-		max-width: 340px;
-	}
+	.modal-time { max-width: 340px; }
 
 	.modal-header {
 		display: flex;

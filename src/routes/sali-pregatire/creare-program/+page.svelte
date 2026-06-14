@@ -28,9 +28,18 @@
     return total ? Math.round((bifate / total) * 100) : 0;
   }
 
-  function toggleActivitate(ziIdx: number, actIdx: number) {
-    program[ziIdx].activitati[actIdx].bifat = !program[ziIdx].activitati[actIdx].bifat;
+  async function toggleActivitate(ziIdx: number, actIdx: number) {
+    const item = program[ziIdx].activitati[actIdx];
+    program[ziIdx].activitati[actIdx].bifat = !item.bifat;
     program = [...program];
+
+    // Salvează în localStorage și notifică dashboard
+    localStorage.setItem('schedulify_program', JSON.stringify(
+      program.map(z => ({ ...z, dateObj: z.dateObj?.toISOString() ?? null }))
+    ));
+    const bc = new BroadcastChannel('schedulify_program_update');
+    bc.postMessage('update');
+    bc.close();
   }
 
   function getZileLuna(data: Date): (Date | null)[] {
@@ -68,7 +77,6 @@
   }
 
   function parseDataOllama(dataStr: string, index: number): Date {
-    // încearcă să parseze "13 iunie", "2026-06-13", etc.
     const luni: Record<string, number> = {
       ianuarie: 0, februarie: 1, martie: 2, aprilie: 3, mai: 4, iunie: 5,
       iulie: 6, august: 7, septembrie: 8, octombrie: 9, noiembrie: 10, decembrie: 11
@@ -81,7 +89,6 @@
         return new Date(new Date().getFullYear(), luna, zi);
       }
     }
-    // fallback: azi + index
     const d = new Date();
     d.setDate(d.getDate() + index);
     return d;
@@ -105,7 +112,17 @@
         dateObj: parseDataOllama(z.data, i),
         activitati: z.activitati.map((a: Activitate) => ({ ...a, bifat: false }))
       }));
-      // setează luna la prima zi din program
+
+      // Salvează în localStorage
+      localStorage.setItem('schedulify_program', JSON.stringify(
+        program.map(z => ({ ...z, dateObj: z.dateObj?.toISOString() ?? null }))
+      ));
+
+      // Notifică dashboard-ul prin BroadcastChannel
+      const bc = new BroadcastChannel('schedulify_program_update');
+      bc.postMessage('update');
+      bc.close();
+
       if (program.length > 0 && program[0].dateObj) {
         lunaAfisata = new Date(program[0].dateObj.getFullYear(), program[0].dateObj.getMonth(), 1);
       }
@@ -283,17 +300,17 @@
 <style>
   :global(*, *::before, *::after) { box-sizing: border-box; margin: 0; padding: 0; }
 
-.page {
-  --blue-950: #0a1628; --blue-900: #0f2347;
-  --blue-600: #2563eb; --blue-500: #3b82f6;
-  --blue-400: #60a5fa; --blue-200: #bfdbfe;
-  font-family: 'DM Sans', sans-serif;
-  min-height: auto; width: 100%; background: transparent;
-  position: relative; overflow: visible;
-  opacity: 0;
-  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.page.mounted { opacity: 1;}
+  .page {
+    --blue-950: #0a1628; --blue-900: #0f2347;
+    --blue-600: #2563eb; --blue-500: #3b82f6;
+    --blue-400: #60a5fa; --blue-200: #bfdbfe;
+    font-family: 'DM Sans', sans-serif;
+    min-height: auto; width: 100%; background: transparent;
+    position: relative; overflow: visible;
+    opacity: 0;
+    transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .page.mounted { opacity: 1; }
 
   .bg-blob { position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; display: none; }
   .blob-1 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(37,99,235,0.25) 0%, transparent 70%); top: -100px; left: -100px; animation: blobFloat 9s ease-in-out infinite; }

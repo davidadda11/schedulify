@@ -11,15 +11,12 @@
     'Iulie', 'August', 'Septembrie', 'Octombrie', 'Noiembrie', 'Decembrie'
   ];
   const DAY_NAMES = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-  const MATERII_DISPONIBILE = ['Matematică', 'Fizică', 'Informatică', 'Română', 'Engleză', 'Istorie', 'Geografie', 'Chimie', 'Biologie', 'Pauză Mare', 'Liber'];
 
   const today = new Date();
   let currentMonth = $state(today.getMonth());
   let currentYear  = $state(today.getFullYear());
   let selectedDay  = $state(today.getDate());
-  let showOrarSelector = $state(false);
 
-  // ── Load from localStorage ────────────────────────────────────────
   function loadFromStorage<T>(key: string, fallback: T): T {
     if (!browser) return fallback;
     try {
@@ -30,10 +27,8 @@
     }
   }
 
-  // ── Study plan din DB ────────────────────────────────────────
   let studyByDate = $state<Record<string, any[]>>(data.studyByDate ?? {});
-
-  const todayIso = today.toISOString().slice(0, 10); // "2026-06-13"
+  const todayIso = today.toISOString().slice(0, 10);
 
   let studyAziReactiv = $derived(studyByDate[todayIso] ?? []);
   let progresAzi = $derived(
@@ -42,8 +37,10 @@
       : 0
   );
 
+  // ── Program viitor din localStorage ─────────────────────────
+  let programViitor = $state<any[]>([]);
+
   async function toggleStudyItem(item: any) {
-    // Optimistic update
     studyByDate = {
       ...studyByDate,
       [item.date]: (studyByDate[item.date] ?? []).map((i: any) =>
@@ -57,51 +54,59 @@
     });
   }
 
-  // ── Calendar helpers ─────────────────────────────────────────
   function dateKey(year: number, month: number, day: number) {
-    // month is 0-indexed (0=Jan, 1=Feb, ..., 11=Dec)
-    // return format: "YYYY-M-D" (matches calendar page format)
     return `${year}-${month}-${day}`;
   }
 
-  // ── Load timetable from localStorage ─────────────────────────
-  let timetable = $state<Record<string, Record<string, any>>>(
-    loadFromStorage('schedulify_timetable', {})
+  const DAYS_RO = ['Luni', 'Marți', 'Miercuri', 'Joi', 'Vineri'];
+
+  type Entry = {
+    id: string;
+    subject: string;
+    teacher: string;
+    room: string;
+    color: string;
+  };
+
+  let timetable = $state<Record<string, Record<number, Entry | null>>>({});
+  let slotTimes = $state<{ start: string; end: string }[]>(
+    Array.from({ length: 9 }, (_, i) => ({
+      start: `${String(8 + i).padStart(2, '0')}:00`,
+      end: `${String(9 + i).padStart(2, '0')}:00`
+    }))
   );
 
-  // ── Load calendar events from localStorage ───────────────────
-  let calendarEvents = $state<Record<string, any[]>>(
-    loadFromStorage('schedulify_calendar_events', {})
-  );
+  let calendarEvents = $state<Record<string, any[]>>({});
 
-  // ── Get schedule for selected day ────────────────────────────
-  const DAYS = ['Luni', 'Marți', 'Miercuri', 'Joi', 'Vineri'];
-  
   let oreleZileiCurente = $derived((() => {
-    const dayOfWeekNum = new Date(currentYear, currentMonth, selectedDay).getDay();
-    // Convert JS day (0=Sunday, 1=Monday, ..., 6=Saturday) to our array (0=Monday, ..., 4=Friday)
-    let dayIndex = dayOfWeekNum - 1; // 0=Mon, 1=Tue, ..., 4=Fri, 5=Sat, -1=Sun
-    
-    // Only show schedule for weekdays (Mon-Fri)
+    const date = new Date(currentYear, currentMonth, selectedDay);
+    const dayOfWeekNum = date.getDay();
+    const dayIndex = dayOfWeekNum === 0 ? -1 : dayOfWeekNum - 1;
+
     if (dayIndex < 0 || dayIndex > 4) {
-      return ['Weekend - fără program'];
+      return [{ subject: 'Weekend – fără program', time: null, color: null }];
     }
-    
-    const dayName = DAYS[dayIndex];
-    if (!timetable[dayName]) return ['Nicio oră configurată'];
-    
-    const timeSlots = Object.entries(timetable[dayName])
+
+    const dayName = DAYS_RO[dayIndex];
+    const daySchedule = timetable[dayName];
+    if (!daySchedule) return [{ subject: 'Nicio oră configurată', time: null, color: null }];
+
+    const slots = Object.entries(daySchedule)
       .filter(([_, entry]) => entry !== null)
-      .map(([_, entry]) => `${entry.subject}${entry.teacher ? ' - ' + entry.teacher : ''}`);
-    
-    return timeSlots.length > 0 ? timeSlots : ['Nicio oră configurată'];
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([slotIdx, entry]) => ({
+        subject: (entry as Entry).subject,
+        teacher: (entry as Entry).teacher,
+        color: (entry as Entry).color,
+        time: slotTimes[Number(slotIdx)]?.start ?? null
+      }));
+
+    return slots.length > 0 ? slots : [{ subject: 'Nicio oră configurată', time: null, color: null }];
   })());
 
-  // ── Get events for selected day ──────────────────────────────
   let evenimenteZilei = $derived(
     calendarEvents[dateKey(currentYear, currentMonth, selectedDay)] ?? []
   );
-
   let temeZilei  = $derived(evenimenteZilei.filter((e: any) => e.type === 'tema'));
   let testeZilei = $derived(evenimenteZilei.filter((e: any) => e.type === 'test'));
 
@@ -115,56 +120,58 @@
     return arr;
   })());
 
-  async function toggleMaterie(materie: string) {
-    const cheie = dateKey(currentYear, currentMonth, selectedDay);
-    let curente = data.orare?.[cheie] ? [...data.orare[cheie]] : [];
-    if (curente.includes(materie)) {
-      curente = curente.filter((m: string) => m !== materie);
-    } else {
-      if (curente.length === 1 && curente[0] === 'Nicio oră configurată') curente = [];
-      curente.push(materie);
-    }
-    try {
-      await fetch('/api/program', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: cheie, program: curente })
-      });
-    } catch (err) {
-      console.error('Eroare la salvarea orarului:', err);
-    }
-  }
+  // Număr task-uri viitoare nebifate (maxim 3 zile)
+  let nrTaskuriActive = $derived(
+    programViitor.slice(0, 3).reduce(
+      (s: number, z: any) => s + (z.activitati ?? []).filter((a: any) => !a.bifat && a.tip !== 'pauza').length,
+      0
+    )
+  );
 
   onMount(() => {
     setTimeout(() => { mounted = true; }, 100);
-    
-    // Reload localStorage data when page is visited
-    if (browser) {
+
+    const reloadStorage = () => {
       timetable = loadFromStorage('schedulify_timetable', {});
+
+      const rawProgram = loadFromStorage<any[]>('schedulify_program', []);
+      const acum = new Date();
+      programViitor = rawProgram
+        .map((z: any) => ({
+          ...z,
+          dateObj: z.dateObj ? new Date(z.dateObj) : null
+        }))
+        .filter((z: any) => {
+          if (!z.dateObj) return false;
+          const ziData = new Date(z.dateObj);
+          // includem azi și zilele viitoare
+          ziData.setHours(23, 59, 59, 999);
+          return ziData >= acum;
+        });
+
+      const savedTimes = loadFromStorage<any[]>('schedulify_slot_times', []);
+      slotTimes = Array.from({ length: 9 }, (_, i) => savedTimes[i] ?? {
+        start: `${String(8 + i).padStart(2, '0')}:00`,
+        end: `${String(9 + i).padStart(2, '0')}:00`
+      });
+
       calendarEvents = loadFromStorage('schedulify_calendar_events', {});
-    }
-
-    // Watch for storage changes from other pages (calendar, orar)
-    const handleStorageChange = () => {
-      if (browser) {
-        timetable = loadFromStorage('schedulify_timetable', {});
-        calendarEvents = loadFromStorage('schedulify_calendar_events', {});
-      }
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    // Also listen for visibility changes to reload data when returning to page
-    const handleVisibilityChange = () => {
-      if (!document.hidden && browser) {
-        timetable = loadFromStorage('schedulify_timetable', {});
-        calendarEvents = loadFromStorage('schedulify_calendar_events', {});
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    reloadStorage();
+
+    // BroadcastChannel prinde și schimbările din același tab (creare-program)
+    const bc = new BroadcastChannel('schedulify_program_update');
+    bc.onmessage = () => reloadStorage();
+
+    window.addEventListener('storage', reloadStorage);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) reloadStorage();
+    });
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('storage', reloadStorage);
+      bc.close();
     };
   });
 </script>
@@ -190,62 +197,85 @@
 
       <div class="bento-grid">
 
-        <!-- Task-uri viitoare -->
+        <!-- ── Task-uri viitoare ── -->
         <div class="bento-card tall-card">
           <div class="card-header">
             <h3>Task-uri viitoare</h3>
-            <span class="badge">{temeZilei.length + testeZilei.length} active</span>
+            <span class="badge" class:badge-blue={nrTaskuriActive > 0}>{nrTaskuriActive} active</span>
           </div>
           <div class="card-body">
-            {#if evenimenteZilei.length === 0}
-              <p class="placeholder-text">Nu ai task-uri pentru această zi.</p>
+            {#if programViitor.length === 0}
+              <p class="placeholder-text">Nu ai program generat.</p>
+              <a href="/sali-pregatire/creare-program" class="link-creare">📅 Creează program →</a>
             {:else}
-              {#each evenimenteZilei as ev}
-                <label class="task-item">
-                  <input type="checkbox" />
-                  <span class={ev.type}>{ev.type.toUpperCase()}:</span> {ev.text || ev.title}
-                </label>
+              {#each programViitor.slice(0, 3) as zi}
+                {@const activitatiStudiu = (zi.activitati ?? []).filter((a: any) => a.tip !== 'pauza')}
+                {@const bifate = activitatiStudiu.filter((a: any) => a.bifat).length}
+                {@const progres = activitatiStudiu.length
+                  ? Math.round(bifate / activitatiStudiu.length * 100)
+                  : 0}
+                <div class="viitor-zi-card">
+                  <div class="viitor-zi-header">
+                    <span class="viitor-zi-nume">{zi.zi} — {zi.data}</span>
+                    <span class="viitor-zi-progres" class:progres-done={progres === 100}>{progres}%</span>
+                  </div>
+                  <div class="progres-mini">
+                    <div
+                      class="progres-mini-fill"
+                      class:progres-mini-green={progres === 100}
+                      style="width: {progres}%"
+                    ></div>
+                  </div>
+                  <div class="viitor-activitati">
+                    {#each (zi.activitati ?? []).filter((a: any) => a.tip !== 'pauza').slice(0, 3) as act}
+                      <div class="viitor-act tip-{act.tip}" class:bifat={act.bifat}>
+                        <span class="study-check">{act.bifat ? '✓' : ''}</span>
+                        <span class="study-ora-mini">{act.ora}</span>
+                        <span class="study-act-mini">{act.activitate}</span>
+                      </div>
+                    {/each}
+                    {#if activitatiStudiu.length > 3}
+                      <span class="viitor-more">+{activitatiStudiu.length - 3} mai multe</span>
+                    {/if}
+                  </div>
+                </div>
               {/each}
+              {#if programViitor.length > 3}
+                <a href="/sali-pregatire/creare-program" class="link-creare">
+                  Vezi toate ({programViitor.length} zile) →
+                </a>
+              {/if}
             {/if}
           </div>
         </div>
 
-        <!-- Orar -->
+        <!-- ── Orar ── -->
         <div class="bento-card wide-card">
           <div class="card-header">
             <h3>Orarul din {selectedDay} {MONTH_NAMES[currentMonth].slice(0, 3)}</h3>
-            <button class="badge btn-interactiv" onclick={() => showOrarSelector = !showOrarSelector}>
-              {showOrarSelector ? 'Închide' : '✏️ Editează rapid'}
-            </button>
           </div>
           <div class="card-body">
-            {#if showOrarSelector}
-              <div class="selector-orar">
-                <p style="font-size: 13px; margin-bottom: 8px; color: #64748b;">Configurează direct în baza de date:</p>
-                <div class="materii-chips">
-                  {#each MATERII_DISPONIBILE as mat}
-                    <button
-                      class="chip-btn"
-                      class:selectat={oreleZileiCurente.includes(mat)}
-                      onclick={() => toggleMaterie(mat)}
-                    >{mat}</button>
-                  {/each}
+            <div class="timeline-flex">
+              {#each oreleZileiCurente as slot, index}
+                <div
+                  class="timeline-item"
+                  class:active={index === 0 && slot.subject !== 'Nicio oră configurată' && slot.subject !== 'Weekend – fără program'}
+                  class:weekend={slot.subject === 'Weekend – fără program'}
+                  style={slot.color ? `--slot-color: ${slot.color}` : ''}
+                >
+                  {#if slot.time}
+                    <span class="time">{slot.time}</span>
+                  {:else}
+                    <span class="time">—</span>
+                  {/if}
+                  <div class="subject">{slot.subject}</div>
                 </div>
-              </div>
-            {:else}
-              <div class="timeline-flex">
-                {#each oreleZileiCurente as subject, index}
-                  <div class="timeline-item" class:active={index === 0 && subject !== 'Nicio oră configurată'}>
-                    <span class="time">Ora {index + 1}</span>
-                    <div class="subject">{subject}</div>
-                  </div>
-                {/each}
-              </div>
-            {/if}
+              {/each}
+            </div>
           </div>
         </div>
 
-        <!-- Teme -->
+        <!-- ── Teme ── -->
         <div class="bento-card">
           <div class="card-header"><h3>Teme din această zi</h3></div>
           <div class="card-body">
@@ -259,7 +289,7 @@
           </div>
         </div>
 
-        <!-- Teste -->
+        <!-- ── Teste ── -->
         <div class="bento-card">
           <div class="card-header"><h3>Teste din această zi</h3></div>
           <div class="card-body">
@@ -273,7 +303,7 @@
           </div>
         </div>
 
-        <!-- ── Program studiu azi (NOU) ─────────────────────── -->
+        <!-- ── Program studiu azi ── -->
         <div class="bento-card wide-card">
           <div class="card-header">
             <h3>Program studiu azi</h3>
@@ -281,13 +311,11 @@
           </div>
           <div class="card-body">
             {#if studyAziReactiv.length === 0}
-              <p class="placeholder-text">
-                Nu ai un program generat pentru azi.
-              </p>
+              <p class="placeholder-text">Nu ai un program generat pentru azi.</p>
               <a href="/sali-pregatire/creare-program" class="link-creare">📅 Creează program →</a>
             {:else}
               <div class="progres-mini">
-                <div class="progres-mini-fill" style="width: {progresAzi}%"></div>
+                <div class="progres-mini-fill" class:progres-mini-green={progresAzi === 100} style="width: {progresAzi}%"></div>
               </div>
               <div class="study-list">
                 {#each studyAziReactiv as item}
@@ -307,7 +335,7 @@
           </div>
         </div>
 
-        <!-- Mini Calendar -->
+        <!-- ── Calendar ── -->
         <div class="bento-card wide-card">
           <div class="card-header">
             <h3>{MONTH_NAMES[currentMonth]} {currentYear}</h3>
@@ -330,12 +358,9 @@
                   class:active={selectedDay === day}
                   class:is-today={day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear()}
                   class:has-events={hasEvents}
-                  onclick={() => { selectedDay = day; showOrarSelector = false; }}
+                  onclick={() => { selectedDay = day; }}
                 >
                   <span>{day}</span>
-                  {#if hasEvents}
-                    <span class="event-dot"></span>
-                  {/if}
                 </button>
               {/if}
             {/each}
@@ -382,74 +407,76 @@
 
   .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
   .card-header h3 { font-family: 'Syne', sans-serif; font-size: 18px; color: #0a1628; }
-  .badge { background: #dbeafe; color: var(--blue-600); padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+  .badge { background: #f1f5f9; color: #64748b; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+  .badge-blue { background: #dbeafe; color: var(--blue-600); }
   .badge-green { background: #dcfce7; color: #16a34a; }
-  .btn-interactiv { border: none; cursor: pointer; transition: background 0.2s; }
-  .btn-interactiv:hover { background: #bfdbfe; }
 
   .card-body { flex: 1; display: flex; flex-direction: column; gap: 12px; }
 
-  .task-item { display: flex; align-items: center; gap: 12px; font-size: 15px; color: #475569; padding: 12px; background: #f8fafc; border-radius: 12px; cursor: pointer; }
-  .task-item input { width: 18px; height: 18px; accent-color: var(--blue-600); }
-  .task-item span.tema { color: #2563eb; font-weight: bold; font-size: 12px; }
-  .task-item span.test { color: #ef4444; font-weight: bold; font-size: 12px; }
+  /* ── Task-uri viitoare ── */
+  .viitor-zi-card {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 12px; background: #f8fafc; border-radius: 14px;
+    border: 1px solid #e2e8f0;
+  }
+  .viitor-zi-header { display: flex; justify-content: space-between; align-items: center; }
+  .viitor-zi-nume { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: #0a1628; }
+  .viitor-zi-progres { font-size: 12px; font-weight: 700; color: #2563eb; }
+  .viitor-zi-progres.progres-done { color: #16a34a; }
 
-  .timeline-flex { display: flex; flex-direction: row; gap: 12px; align-items: center; flex-wrap: wrap; }
-  .timeline-item { text-align: center; background: #f8fafc; padding: 14px; border-radius: 16px; flex: 1; min-width: 100px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
-  .timeline-item.active { background: var(--blue-600); color: white; }
-  .timeline-item .time { display: block; font-size: 11px; opacity: 0.8; margin-bottom: 4px; font-weight: 600; }
-  .timeline-item .subject { font-weight: 700; font-size: 14px; }
+  .viitor-activitati { display: flex; flex-direction: column; gap: 4px; }
+  .viitor-act {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .viitor-act.tip-studiu       { background: #eff6ff; border-left: 3px solid #2563eb; }
+  .viitor-act.tip-recapitulare { background: #fefce8; border-left: 3px solid #eab308; }
+  .viitor-act.tip-pauza        { background: #f0fdf4; border-left: 3px solid #22c55e; }
+  .viitor-act.bifat { opacity: 0.4; }
+  .viitor-more { font-size: 11px; color: #94a3b8; padding: 2px 4px; }
 
-  .selector-orar { background: #f8fafc; padding: 16px; border-radius: 16px; width: 100%; }
-  .materii-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chip-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid #cbd5e1; background: white; font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
-  .chip-btn.selectat { background: var(--blue-600); color: white; border-color: var(--blue-600); }
+  /* ── Timeline orar ── */
+  .timeline-flex { display: flex; flex-direction: row; gap: 10px; align-items: stretch; flex-wrap: wrap; }
+  .timeline-item { text-align: center; background: #f8fafc; padding: 12px 10px; border-radius: 14px; flex: 1; min-width: 90px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); border-top: 3px solid transparent; transition: transform 0.15s; color: #0a1628; }
+  .timeline-item:not(.weekend) { border-top-color: var(--slot-color, #2563eb); }
+  .timeline-item.active { background: var(--blue-600); color: white; border-top-color: transparent; }
+  .timeline-item.weekend { background: #eff6ff; border-top-color: #bfdbfe; }
+  .timeline-item .time { display: block; font-size: 11px; opacity: 0.7; margin-bottom: 4px; font-weight: 600; }
+  .timeline-item .subject { font-weight: 700; font-size: 13px; }
 
   .placeholder-text { font-size: 14px; color: #475569; padding: 12px; border: 2px dashed #cbd5e1; border-radius: 12px; text-align: center; font-weight: 500; }
   .highlight { border-color: #ef4444; color: #ef4444; background: #fef2f2; }
 
-  /* ── Study widget ────────────────────────────────────────── */
+  /* ── Program studiu azi ── */
   .progres-mini { height: 6px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
-  .progres-mini-fill { height: 100%; background: #22c55e; border-radius: 99px; transition: width 0.35s ease; }
+  .progres-mini-fill { height: 100%; background: #2563eb; border-radius: 99px; transition: width 0.35s ease; }
+  .progres-mini-fill.progres-mini-green { background: #22c55e; }
 
   .study-list { display: flex; flex-direction: column; gap: 6px; }
-
-  .study-row {
-    display: flex; align-items: center; gap: 10px;
-    padding: 9px 12px; border-radius: 10px; border: none;
-    cursor: pointer; width: 100%; text-align: left;
-    transition: opacity 0.2s;
-    font-family: 'DM Sans', sans-serif;
-  }
+  .study-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; border: none; cursor: pointer; width: 100%; text-align: left; transition: opacity 0.2s; font-family: 'DM Sans', sans-serif; }
   .study-row.bifat { opacity: 0.4; }
   .study-row.tip-studiu       { background: #eff6ff; border-left: 3px solid #2563eb; }
   .study-row.tip-recapitulare { background: #fefce8; border-left: 3px solid #eab308; }
+  .study-row.tip-pauza        { background: #f0fdf4; border-left: 3px solid #22c55e; }
 
-  .study-check {
-    min-width: 18px; height: 18px; border-radius: 5px;
-    border: 2px solid #cbd5e1; background: white;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: 700; color: #22c55e; flex-shrink: 0;
-  }
+  .study-check { min-width: 18px; height: 18px; border-radius: 5px; border: 2px solid #cbd5e1; background: white; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #22c55e; flex-shrink: 0; }
   .bifat .study-check { background: #dcfce7; border-color: #22c55e; }
-
   .study-ora-mini  { font-size: 11px; font-weight: 700; color: #94a3b8; min-width: 40px; }
   .study-act-mini  { flex: 1; font-size: 13px; font-weight: 600; color: #1e293b; }
   .study-dur-mini  { font-size: 11px; color: #94a3b8; }
-
   .link-creare { display: inline-block; margin-top: 4px; color: #2563eb; font-weight: 600; text-decoration: none; font-size: 14px; }
   .link-creare:hover { text-decoration: underline; }
 
-  /* ── Mini Calendar ───────────────────────────────────────── */
+  /* ── Calendar ── */
   .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
   .cal-day-header { font-size: 11px; font-weight: 700; color: #94a3b8; padding-bottom: 4px; }
-  .cal-day { padding: 10px 4px; font-size: 13px; color: #0a1628; border-radius: 10px; cursor: pointer; border: none; background: transparent; font-family: 'DM Sans', sans-serif; font-weight: 500; position: relative; display: flex; align-items: center; justify-content: center; }
+  .cal-day { padding: 10px 4px; font-size: 13px; color: #0a1628; border-radius: 10px; cursor: pointer; border: none; background: transparent; font-family: 'DM Sans', sans-serif; font-weight: 500; position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column; }
   .cal-day:not(.empty):hover { background: #eff6ff; color: var(--blue-600); }
   .cal-day.active { background: var(--blue-600) !important; color: white !important; font-weight: bold; }
   .cal-day.is-today { background: #dbeafe; color: var(--blue-600); font-weight: 700; }
   .cal-day.has-events::after { content: ''; position: absolute; bottom: 2px; width: 6px; height: 6px; background: #ef4444; border-radius: 50%; }
   .cal-day.empty { pointer-events: none; }
-  .event-dot { display: none; }
   .nav-mini { background: #f1f5f9; border: none; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; color: #475569; }
   .nav-mini:hover { background: #e2e8f0; }
 
