@@ -44,6 +44,7 @@ export const load: PageServerLoad = async ({ request }) => {
     studyByDate,
     studyAzi,
     progresGeneral,
-    // Păstrăm și datele existente (orare, evenimente) dacă le încarci din altă parte
+    orare: {} as Record<string, string[]>,
+    evenimente: {} as Record<string, unknown[]>,
   };
 };

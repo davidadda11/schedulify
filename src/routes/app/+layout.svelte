@@ -2,12 +2,17 @@
     import { goto } from '$app/navigation';
     import { page } from '$app/stores';
     import { signOut } from '$lib/auth/auth-client';
+    import { onMount } from 'svelte';
 
     let { children, data } = $props();
     let showMenu = $state(false);
 
-    // Protecția rutei se face acum exclusiv pe server (în hooks.server.ts).
-    // Am eliminat complet $effect-ul care te trimitea la login la fiecare refresh.
+    // Redirect to login if not authenticated
+    onMount(() => {
+        if (!data?.session) {
+            goto('/login');
+        }
+    });
 
     async function handleSignOut() {
         await signOut();
@@ -63,8 +68,7 @@
     </main>
 </div>
 {:else}
-  <!-- debug temporar -->
-  <p style="color:white">Session: {JSON.stringify(data)}</p>
+  <!-- Redirecting to login -->
 {/if}
 
 <style>

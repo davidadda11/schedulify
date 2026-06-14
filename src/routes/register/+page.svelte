@@ -45,21 +45,48 @@
 	});
  
 	import { authClient } from '$lib/auth/auth-client';
- 
+
 	async function handleSubmit() {
 		if (!name || !email || !password) return;
 		isLoading = true;
- 
+
 		const { error } = await authClient.signUp.email({
 			name,
 			email,
 			password
 		});
- 
+
 		isLoading = false;
 		if (error) {
 			alert(error.message);
 		} else {
+			// Initialize default settings for new user
+			if (typeof window !== 'undefined') {
+				const defaultSettings = {
+					profile: { name: name, school: '', grade: '', avatar: '' },
+					subjects: [
+						{ id: '1', name: 'Matematică', teacher: '', color: '#6366f1' },
+						{ id: '2', name: 'Română', teacher: '', color: '#ec4899' },
+						{ id: '3', name: 'Fizică', teacher: '', color: '#06b6d4' },
+					],
+					notifs: {
+						remindersEnabled: true,
+						reminderTime: '08:00',
+						homeworkAlert: true,
+						testAlert: true,
+						weeklyReport: false,
+					},
+					appearance: {
+						compactMode: false,
+						showMotivation: true,
+						language: 'ro',
+					}
+				};
+				localStorage.setItem('schedulify_profile', JSON.stringify(defaultSettings.profile));
+				localStorage.setItem('schedulify_subjects', JSON.stringify(defaultSettings.subjects));
+				localStorage.setItem('schedulify_notifs', JSON.stringify(defaultSettings.notifs));
+				localStorage.setItem('schedulify_appearance', JSON.stringify(defaultSettings.appearance));
+			}
 			showSuccess = true;
 		}
 	}

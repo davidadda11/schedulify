@@ -4,10 +4,12 @@
      2. Afișează itemii de studiu (fără pauze) în celulele zilelor
      3. Panel lateral când dai click pe o zi cu studiu
      4. Toggle bifat prin PATCH la /api/program
-     Restul logicii (events manuale, modal) rămâne identic.
+     5. Persistă eventele manuale în localStorage
+     Restul logicii rămâne identic.
 -->
 
 <script lang="ts">
+  import { browser } from '$app/environment';
   import { enhance } from '$app/forms';
 
   let { data } = $props();
@@ -59,10 +61,27 @@
 
   type CalEvent = { id: string; title: string; type: string; color: string };
 
+  function loadEventsFromStorage(): Record<string, CalEvent[]> {
+    if (!browser) return {};
+    try {
+      const stored = localStorage.getItem('schedulify_calendar_events');
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function saveEventsToStorage(evts: Record<string, CalEvent[]>) {
+    if (!browser) return;
+    try {
+      localStorage.setItem('schedulify_calendar_events', JSON.stringify(evts));
+    } catch {}
+  }
+
   const today = new Date();
   let currentMonth = $state(today.getMonth());
   let currentYear  = $state(today.getFullYear());
-  let events       = $state<Record<string, CalEvent[]>>({});
+  let events       = $state<Record<string, CalEvent[]>>(loadEventsFromStorage());
 
   let showModal  = $state(false);
   let modalDate  = $state<{ year: number; month: number; day: number } | null>(null);
@@ -118,6 +137,7 @@
       list.push({ id: crypto.randomUUID(), title: formData.title.trim(), type: formData.type, color: formData.color });
     }
     events    = { ...events, [key]: list };
+    saveEventsToStorage(events);
     showModal = false;
   }
 
@@ -125,6 +145,7 @@
     if (!modalDate || !editEvent) return;
     const key = dateKey(modalDate.year, modalDate.month, modalDate.day);
     events    = { ...events, [key]: (events[key] ?? []).filter(e => e.id !== editEvent!.id) };
+    saveEventsToStorage(events);
     showModal = false;
   }
 
@@ -283,7 +304,7 @@
     {#if totalEvents > 0}
       <div class="selected-info">
         <span>{totalEvents} {totalEvents === 1 ? 'eveniment' : 'evenimente'}</span>
-        <button class="clear-btn" onclick={() => events = {}}>Șterge tot</button>
+        <button class="clear-btn" onclick={() => { events = {}; saveEventsToStorage({}); }}>Șterge tot</button>
       </div>
     {/if}
   </div>

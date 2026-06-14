@@ -11,6 +11,7 @@ import {
   uuid,
   varchar,
   real,
+  index,
 } from 'drizzle-orm/pg-core';
 
 // ── Better Auth required tables ──────────────────────────────
@@ -128,7 +129,9 @@ export const studyPlanItem = pgTable('study_plan_items', {
   tip:        text('tip').notNull(),          // 'studiu' | 'recapitulare' | 'pauza'
   bifat:      boolean('bifat').notNull().default(false),
   createdAt:  timestamp('created_at').notNull().defaultNow(),
-});
+}, (table) => ({
+  userDateIdx: index('study_plan_items_user_id_date_idx').on(table.userId, table.date),
+}));
  
  
 // ── Type Exports ──────────────────────────────────────────────

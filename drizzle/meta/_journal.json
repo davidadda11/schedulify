@@ -8,6 +8,13 @@
       "when": 1780668733417,
       "tag": "0000_tidy_blob",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781430000000,
+      "tag": "0001_create_study_plan_items",
+      "breakpoints": true
     }
   ]
 }

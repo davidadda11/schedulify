@@ -1,6 +1,6 @@
 import type { PageServerLoad, Actions } from './$types';
 import { db } from '$db/index';
-import { users, sessions } from '$db/schema';
+import { user as users, session as sessions } from '$db/schema';
 import { eq, desc, gt } from 'drizzle-orm';  // ← gt adăugat
 import { fail } from '@sveltejs/kit';
 

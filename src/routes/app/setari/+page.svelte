@@ -1,11 +1,57 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+
 	// --- Profil ---
-	let profile = $state({
+	const DEFAULT_PROFILE = {
 		name: '',
 		school: '',
 		grade: '',
 		avatar: '' // initials fallback
-	});
+	};
+
+	const DEFAULT_SUBJECTS: Array<{ id: string; name: string; teacher: string; color: string }> = [
+		{ id: '1', name: 'Matematică', teacher: '', color: '#6366f1' },
+		{ id: '2', name: 'Română', teacher: '', color: '#ec4899' },
+		{ id: '3', name: 'Fizică', teacher: '', color: '#06b6d4' },
+	];
+
+	const DEFAULT_NOTIFS = {
+		remindersEnabled: true,
+		reminderTime: '08:00',
+		homeworkAlert: true,
+		testAlert: true,
+		weeklyReport: false,
+	};
+
+	const DEFAULT_APPEARANCE = {
+		compactMode: false,
+		showMotivation: true,
+		language: 'ro',
+	};
+
+	function loadFromStorage<T>(key: string, fallback: T): T {
+		if (!browser) return fallback;
+		try {
+			const raw = localStorage.getItem(key);
+			return raw ? JSON.parse(raw) : fallback;
+		} catch {
+			return fallback;
+		}
+	}
+
+	function saveToStorage(key: string, value: unknown) {
+		if (!browser) return;
+		try {
+			localStorage.setItem(key, JSON.stringify(value));
+		} catch {}
+	}
+
+	let profile = $state(loadFromStorage('schedulify_profile', DEFAULT_PROFILE));
+	let subjects = $state<Array<{ id: string; name: string; teacher: string; color: string }>>(
+		loadFromStorage('schedulify_subjects', DEFAULT_SUBJECTS)
+	);
+	let notifs = $state(loadFromStorage('schedulify_notifs', DEFAULT_NOTIFS));
+	let appearance = $state(loadFromStorage('schedulify_appearance', DEFAULT_APPEARANCE));
 
 	const GRADES = ['V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 
@@ -16,12 +62,6 @@
 		'#6366f1', '#8b5cf6', '#ec4899', '#f43f5e',
 		'#f59e0b', '#10b981', '#06b6d4', '#3b82f6'
 	];
-
-	let subjects = $state<Subject[]>([
-		{ id: '1', name: 'Matematică', teacher: '', color: '#6366f1' },
-		{ id: '2', name: 'Română', teacher: '', color: '#ec4899' },
-		{ id: '3', name: 'Fizică', teacher: '', color: '#06b6d4' },
-	]);
 
 	let newSubject = $state({ name: '', teacher: '', color: COLORS[0] });
 	let addingSubject = $state(false);
@@ -36,31 +76,48 @@
 		}];
 		newSubject = { name: '', teacher: '', color: COLORS[Math.floor(Math.random() * COLORS.length)] };
 		addingSubject = false;
+		saveToStorage('schedulify_subjects', subjects);
 	}
 
 	function removeSubject(id: string) {
 		subjects = subjects.filter(s => s.id !== id);
+		saveToStorage('schedulify_subjects', subjects);
 	}
-
-	// --- Notificări ---
-	let notifs = $state({
-		remindersEnabled: true,
-		reminderTime: '08:00',
-		homeworkAlert: true,
-		testAlert: true,
-		weeklyReport: false,
-	});
-
-	// --- Aspect ---
-	let appearance = $state({
-		compactMode: false,
-		showMotivation: true,
-		language: 'ro',
-	});
 
 	// --- Save feedback ---
 	let saved = $state(false);
+	let resetConfirmed = $state(false);
+
 	function save() {
+		saveToStorage('schedulify_profile', profile);
+		saveToStorage('schedulify_subjects', subjects);
+		saveToStorage('schedulify_notifs', notifs);
+		saveToStorage('schedulify_appearance', appearance);
+		saved = true;
+		setTimeout(() => (saved = false), 2000);
+	}
+
+	function resetData() {
+		if (!resetConfirmed) {
+			resetConfirmed = true;
+			setTimeout(() => (resetConfirmed = false), 3000);
+			return;
+		}
+		// Clear all localStorage keys
+		localStorage.removeItem('schedulify_profile');
+		localStorage.removeItem('schedulify_subjects');
+		localStorage.removeItem('schedulify_notifs');
+		localStorage.removeItem('schedulify_appearance');
+		localStorage.removeItem('schedulify_timetable');
+		localStorage.removeItem('schedulify_slot_times');
+		localStorage.removeItem('schedulify_calendar_events');
+		
+		// Reset to defaults
+		profile = DEFAULT_PROFILE;
+		subjects = DEFAULT_SUBJECTS;
+		notifs = DEFAULT_NOTIFS;
+		appearance = DEFAULT_APPEARANCE;
+		resetConfirmed = false;
 		saved = true;
 		setTimeout(() => (saved = false), 2000);
 	}
@@ -267,7 +324,9 @@
 				<span class="danger-name">Resetează toate datele</span>
 				<span class="danger-desc">Șterge orarul, temele și setările. Acțiunea nu poate fi anulată.</span>
 			</div>
-			<button class="btn-danger-outline">Resetează</button>
+			<button class="btn-danger-outline" class:active={resetConfirmed} onclick={resetData}>
+				{resetConfirmed ? '✓ Confirmă resetare' : 'Resetează'}
+			</button>
 		</div>
 	</section>
 
@@ -724,6 +783,16 @@
 
 	.btn-danger-outline:hover {
 		background: rgba(244, 63, 94, 0.08);
+	}
+
+	.btn-danger-outline:active {
+		background: rgba(244, 63, 94, 0.15);
+	}
+
+	.btn-danger-outline.active {
+		background: rgba(244, 63, 94, 0.15);
+		border-color: rgba(244, 63, 94, 0.5);
+		color: #fca5a5;
 	}
 
 	/* Bottom save */

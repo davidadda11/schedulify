@@ -288,14 +288,14 @@
   --blue-600: #2563eb; --blue-500: #3b82f6;
   --blue-400: #60a5fa; --blue-200: #bfdbfe;
   font-family: 'DM Sans', sans-serif;
-  min-height: 100vh; width: 100vw; background: var(--blue-950);
+  min-height: auto; width: 100%; background: transparent;
   position: relative; overflow: visible;
   opacity: 0;
   transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .page.mounted { opacity: 1;}
 
-  .bg-blob { position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; }
+  .bg-blob { position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; display: none; }
   .blob-1 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(37,99,235,0.25) 0%, transparent 70%); top: -100px; left: -100px; animation: blobFloat 9s ease-in-out infinite; }
   .blob-2 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(96,165,250,0.15) 0%, transparent 70%); bottom: -100px; right: 10%; animation: blobFloat 12s ease-in-out infinite reverse; }
   .blob-3 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%); top: 40%; left: 40%; animation: blobFloat 7s ease-in-out infinite 3s; }
