@@ -1,162 +1,158 @@
 # Schedulify
 
-Schedulify este o platformă educațională construită pentru a ajuta elevii să își organizeze pregătirea pentru examene. Ideea a pornit simplu: dai numărul de ore disponibile pe zi și materiile, și primești un program structurat generat de un model AI local. De acolo, bifezi ce ai făcut, urmărești progresul și poți analiza răspunsurile de la teste direct în aplicație.
+Schedulify este o platforma educationala pe care am construit-o de la zero pentru a ajuta elevii sa isi organizeze eficient pregatirea pentru examene. Aplicatia rezolva o problema reala de gestionare a timpului: utilizatorul introduce numarul de ore disponibile pe zi si materiile studiate, iar sistemul genereaza automat un program structurat pe zile. Elevii pot bifa sarcinile indeplinite, pot urmari progresul in timp real si pot analiza raspunsurile de la teste direct in aplicatie.
 
-Tot AI-ul rulează local prin Ollama — fără date trimise în cloud, fără costuri de API.
+Tot fluxul de inteligenta artificiala ruleaza complet local prin Ollama — datele raman pe masina utilizatorului, fara costuri de API si fara stocare in cloud.
+
+link github: https://github.com/davidadda11/schedulify
+---
+
+## Stack Tehnologic
+
+- **SvelteKit + TypeScript** — Arhitectura unificata pentru frontend si backend (rutare si endpoint-uri API)
+- **Bun** — Runtime rapid si package manager performant
+- **PostgreSQL** — Baza de date relationala rulata izolat prin **Docker**
+- **Drizzle ORM** — Gestionarea schemelor si a migrarilor de date
+- **Better Auth** — Sistem complet si sigur pentru autentificare
+- **Ollama** — Integrare inteligenta artificiala locala (modele optimizate pentru text si analiza vizuala)
+- **Tailwind CSS** — Stil vizual modern (tema Dark Mode `#0a1628`, carduri albe cu `border-radius: 24px`)
 
 ---
 
-## Ce folosim
+## Instalare si Configurare
 
-- **SvelteKit + TypeScript** — frontend și backend în același loc
-- **Bun** — runtime și package manager
-- **PostgreSQL** rulat prin **Docker**
-- **Drizzle ORM** pentru schema și migrări
-- **Better Auth** pentru autentificare
-- **Ollama** cu modelele `qwen2.5:1.5b` și `llava-phi3`
-- **Tailwind CSS** pentru stilizare
+### 1. Cerinte Preliminare
 
----
+Instaleaza componentele in urmatoarea ordine:
 
-## Instalare
-
-### 1. Cerințe
-
-Instalează în ordinea de mai jos:
-
-**Docker Desktop**
-https://www.docker.com/products/docker-desktop
-Asigură-te că Docker rulează în fundal înainte de orice altceva.
-
-**Bun**
-```bash
-# Linux / WSL
-curl -fsSL https://bun.sh/install | bash
-```
-```powershell
-# Windows (PowerShell)
-powershell -c "irm bun.sh/install.ps1 | iex"
-```
-
-**Ollama**
-https://ollama.com/download
-Instalează și asigură-te că rulează — verifici cu `ollama list`.
-
-**Git**
-https://git-scm.com
+* **Docker Desktop** ([Descarca Docker](https://www.docker.com/products/docker-desktop)) — Porneste aplicatia Docker in fundal inainte de a continua.
+* **Bun Runtime** — Ruleaza comanda corespunzatoare sistemului tau:
+  ```bash
+  # Linux / WSL (Ubuntu)
+  curl -fsSL https://bun.sh/install | bash
+  ```
+  ```powershell
+  # Windows (PowerShell)
+  powershell -c "irm bun.sh/install.ps1 | iex"
+  ```
+* **Ollama** ([Descarca Ollama](https://ollama.com/download)) — Instaleaza aplicatia si asigura-te ca serviciul ruleaza in background.
+* **Git** ([Descarca Git](https://git-scm.com)) — Necesar pentru clonarea proiectului.
 
 ---
 
-### 2. Clonare și instalare dependințe
+### 2. Clonarea Proiectului si Dependinte
+
+Deschide terminalul (recomandat WSL Ubuntu pentru compatibilitate deplina cu schita proiectului) si ruleaza:
 
 ```bash
-git clone https://github.com/davidadda11/sheludify.git
-cd sheludify
+git clone https://github.com
+cd schedulify-main
 bun install
 ```
 
 ---
 
-### 3. Variabile de mediu
+### 3. Variabilele de Mediu
+
+Copiaza fisierul model pentru a crea configuratia locala:
 
 ```bash
 cp .env.example .env
 ```
 
-Deschide `.env` și completează:
+Deschide fisierul `.env` si completeaza datele necesare:
+```env
 DATABASE_URL=postgres://root:mysecretpassword@localhost:5432/local
-
 ORIGIN=http://localhost:5173
-
-BETTER_AUTH_SECRET=<string random minim 32 caractere>
-
+BETTER_AUTH_SECRET=pune_aici_un_sir_random_de_minimum_32_caractere
 BETTER_AUTH_URL=http://localhost:5173
+```
 
-Pentru `BETTER_AUTH_SECRET` poți genera unul cu:
+*Sfat: Poti genera rapid un secret securizat ruland urmatoarea comanda in terminal:*
 ```bash
 openssl rand -base64 32
 ```
 
 ---
 
-### 4. Baza de date
+### 4. Initializarea Bazei de Date
+
+Porneste containerul de PostgreSQL definit in `compose.yaml`:
 
 ```bash
 docker compose up -d
 ```
+*Asteapta aproximativ 15-20 de secunde pentru ca baza de date sa devina complet activa.*
 
-Așteaptă ~20 de secunde pentru inițializarea PostgreSQL, apoi aplică schema:
-
+Ruleaza migrarea pentru a genera tabelele necesare (inclusiv schema pentru `study_plan_items`):
 ```bash
 bun run db:migrate
 ```
-
-Verifici că totul e pornit cu `docker ps` — trebuie să apară containerul de PostgreSQL.
+*Poti verifica starea containerului folosind comanda `docker ps`.*
 
 ---
 
-### 5. Modele AI
+### 5. Descarcarea Modelelor AI (Ollama)
+
+Proiectul este compatibil cu mai multe modele. Descarca variantele principale rulate in aplicatie:
 
 ```bash
 ollama pull qwen2.5:1.5b
 ollama pull llava-phi3
 ```
+* qwen2.5:1.5b (~986 MB) — Model rapid folosit implicit pentru generarea planului de invatamant.
+* llava-phi3 (~2.9 GB) — Model multimodal utilizat pentru functionalitatile de analiza vizuala.
 
-`qwen2.5:1.5b` are ~1 GB, `llava-phi3` are ~2.9 GB. Necesită conexiune la internet la primul pull.
+Poti verifica modelele descarcate cu: `ollama list`
 
 ---
 
-### 6. Pornire
+### 6. Pornirea Aplicatiei
 
+Lanseaza serverul de dezvoltare:
 ```bash
 bun run dev
 ```
-
-Aplicația e disponibilă la `http://localhost:5173`.
+Aplicatia va fi accesibila in browser la adresa: `http://localhost:5173`
 
 ---
 
-## Rute principale
+## Rute Principale (Interfata)
 
-| Rută | Descriere |
+| Ruta | Functionalitate |
 |---|---|
-| `/login`, `/register` | Autentificare |
-| `/creare-program` | Generare program personalizat cu AI |
-| `/sali-pregatire` | Organizare pe grupe |
-| `/sali-pregatire/analiza-test` | Analiză răspunsuri cu AI |
-| `/intrebari-pregatitoare` | Întrebări generate pe materie |
+| `/login`, `/register` | Autentificare si creare cont elev |
+| `/creare-program` | Interfata de input ore/materii si generare program cu AI |
+| `/sali-pregatire` | Panou de organizare si gestionare pe grupe de studiu |
+| `/sali-pregatire/analiza-test` | Zona de incarcare si evaluare a raspunsurilor cu ajutorul AI |
+| `/intrebari-pregatitoare` | Seturi de intrebari generate automat pe baza materiilor |
 
 ---
 
-## Depanare
+## Depanare (Troubleshooting)
 
-**AI-ul nu răspunde (eroare 500)**
-```bash
-ollama list
-# dacă modelul nu apare:
-ollama pull qwen2.5:1.5b
-```
+**1. Eroare TS: Cannot find name 'process' in `drizzle.config.ts`**
+* **Cauza:** TypeScript nu recunoaste globalul `process` specific Node.js intr-un mediu pornit cu Bun.
+* **Rezolvare:** Inlocuieste `process.env.DATABASE_URL` cu varianta nativa din Bun: `Bun.env.DATABASE_URL`. Alternativ, poti instala tipurile ruland: `bun add -d @types/node`.
 
-**Eroare la baza de date la pornire**
-```bash
-docker ps
-# dacă containerul nu apare:
-docker compose up -d
-```
+**2. Eroare 500 / AI-ul nu raspunde**
+* **Cauza:** Serviciul Ollama este oprit sau modelul selectat nu este descarcat local.
+* **Rezolvare:** Verifica ruleaza ruland `ollama list`. Daca primesti eroare de conexiune, porneste aplicatia Ollama. Daca modelul lipseste, ruleaza din nou `ollama pull qwen2.5:1.5b`.
 
-**`bun run db:migrate` eșuează**
-Asigură-te că containerul PostgreSQL e activ (~20s după `docker compose up -d`), apoi reîncearcă.
+**3. Eroare de conexiune la Baza de Date**
+* **Cauza:** Containerul Docker nu ruleaza sau portul `5432` este blocat de o alta instanta locala de PostgreSQL.
+* **Rezolvare:** Ruleaza `docker ps` sa vezi daca serviciul este activ. Daca nu apare, foloseste `docker compose down` si apoi `docker compose up -d`.
 
-**Port 5173 ocupat**
-```bash
-# găsește procesul:
-lsof -i :5173
-# sau schimbă portul în vite.config.ts
-```
+**4. Portul 5173 este deja ocupat**
+* **Rezolvare:** Gaseste si opreste procesul blocat cu comanda:
+  ```bash
+  lsof -i :5173
+  kill -9 <PID>
+  ```
 
 ---
 
-## Echipă
+## Echipa de Dezvoltare
 
-- **Belenchi Robert Marian** — [@RoBee05] (https://github.com/RoBee05)
-- **Poterași David Ștefan** — [@davidadda11] (https://github.com/davidadda11)
+* **Belenchi Robert Marian** — [@RoBee05](https://github.com/RoBee05)
+* **Poterasi David Stefan** — [@davidadda11](https://github.com/davidadda11)
