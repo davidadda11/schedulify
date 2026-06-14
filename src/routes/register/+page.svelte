@@ -277,22 +277,17 @@
 				</div>
 				<div class="feature-item">
 					<span class="feat-icon">◎</span>
-					<span>Alerte în timp real</span>
+					<span>Pregătirea eficientă</span>
 				</div>
 				<div class="feature-item">
 					<span class="feat-icon">◉</span>
-					<span>Sincronizare perfectă</span>
+					<span>Organizarea optimă</span>
 				</div>
 			</div>
 		</div>
  
 		<div class="card-wrap">
-			{#if showBubble}
-				<div class="bubble" class:visible={showBubble}>
-					<div class="bubble-dot"></div>
-					<span>Alertele tale sunt active <strong>ACUM</strong></span>
-				</div>
-			{/if}
+			
  
 			{#if showSuccess}
 				<div class="success-state">
@@ -546,6 +541,7 @@
  
 	/* ===== WALL CLOCK ===== */
 	.wall-clock {
+		display: none;
 		position: fixed;
 		top: 16px;
 		left: 16px;
