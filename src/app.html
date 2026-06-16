@@ -1,12 +1,33 @@
 <!doctype html>
-<html lang="en">
+<html lang="ro">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<meta name="text-scale" content="scale" />
+		<script>
+			(function() {
+				try {
+					var s = JSON.parse(localStorage.getItem('schedulify_settings_v1') || '{}');
+					var accents = {
+						blue:    { c: '#2563eb', d: '#1d4ed8' },
+						violet:  { c: '#7c3aed', d: '#6d28d9' },
+						emerald: { c: '#059669', d: '#047857' },
+						rose:    { c: '#e11d48', d: '#be123c' },
+						amber:   { c: '#d97706', d: '#b45309' },
+					};
+					var sizes = { small: '14px', normal: '16px', large: '18px' };
+					var a = accents[s.accent] || accents.blue;
+					var fs = sizes[s.fontSize] || '16px';
+					document.documentElement.style.setProperty('--accent-600', a.c);
+					document.documentElement.style.setProperty('--accent-dark', a.d);
+					document.documentElement.style.setProperty('--font-size-base', fs);
+					if (s.compact) document.body && document.body.classList.add('compact-mode');
+				} catch(e) {}
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>
+ 

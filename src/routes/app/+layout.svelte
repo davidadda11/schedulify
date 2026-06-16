@@ -3,35 +3,51 @@
     import { page } from '$app/stores';
     import { signOut } from '$lib/auth/auth-client';
     import { onMount } from 'svelte';
+    import { browser } from '$app/environment';
 
     let { children, data } = $props();
     let showMenu = $state(false);
 
-    // Redirect to login if not authenticated
     onMount(() => {
         if (!data?.session) {
             goto('/login');
+        }
+        if (browser) {
+            try {
+                const prefs = JSON.parse(localStorage.getItem('schedulify_prefs_v2') || '{}');
+                if (prefs.theme) {
+                    document.documentElement.setAttribute('data-theme', prefs.theme);
+                }
+                if (prefs.accent) {
+                    const accents: Record<string, string> = {
+                        blue: '#2563eb', violet: '#7c3aed', emerald: '#059669',
+                        rose: '#e11d48', amber: '#d97706'
+                    };
+                    const hex = accents[prefs.accent] ?? '#2563eb';
+                    document.documentElement.style.setProperty('--color-accent', hex);
+                }
+            } catch {}
         }
     });
 
     async function handleSignOut() {
         await signOut();
-        window.location.href = '/login'; // Refresh curat la logout
+        window.location.href = '/login';
     }
 
     const menuItems = [
-        { icon: '◆', label: 'Dashboard', href: '/app/dashboard' },
-        { icon: '📅', label: 'Orar', href: '/app/orar' },
-        { icon: '🗓', label: 'Calendar', href: '/app/calendar' },
+        { icon: '◆', label: 'Dashboard',        href: '/app/dashboard' },
+        { icon: '📅', label: 'Orar',             href: '/app/orar' },
+        { icon: '🗓', label: 'Calendar',          href: '/app/calendar' },
         { icon: '🏫', label: 'Săli de pregătire', href: '/sali-pregatire' },
-        { icon: '💬', label: 'Chat', href: '/app/chat' },
-        { icon: '⚙️', label: 'Setări', href: '/app/setari' },
+        { icon: '💬', label: 'Chat',              href: '/app/chat' },
+        { icon: '⚙️', label: 'Setări',            href: '/app/setari' },
     ];
 </script>
 
 {#if data?.session}
 <div class="shell">
-    <aside class="sidebar card">
+    <aside class="sidebar">
         <div class="branding">
             <span class="brand-title">Schedulify</span>
         </div>
@@ -64,8 +80,6 @@
         {@render children()}
     </main>
 </div>
-{:else}
-  <!-- Redirecting to login -->
 {/if}
 
 <style>
@@ -75,13 +89,8 @@
         height: 100vh;
         padding: 24px;
         gap: 32px;
-        background: #0a1628;
-    }
-
-    .card {
-        background: rgba(255,255,255,0.95);
-        border-radius: 24px;
-        box-shadow: 0 0 0 1px rgba(37,99,235,0.1), 0 16px 40px rgba(10,22,40,0.4);
+        background: var(--shell-bg, #0a1628);
+        transition: background 0.3s ease;
     }
 
     .sidebar {
@@ -89,11 +98,13 @@
         flex-direction: column;
         padding: 32px 24px;
         height: 100%;
+        background: var(--sidebar-bg, rgba(255,255,255,0.95));
+        border-radius: 24px;
+        box-shadow: var(--sidebar-shadow, 0 0 0 1px rgba(37,99,235,0.1), 0 16px 40px rgba(10,22,40,0.4));
+        transition: background 0.3s ease, box-shadow 0.3s ease;
     }
 
-    .branding {
-        margin-bottom: 40px;
-    }
+    .branding { margin-bottom: 40px; }
 
     .brand-title {
         font-family: 'Syne', sans-serif;
@@ -120,30 +131,23 @@
         border-radius: 12px;
         font-size: 15px;
         font-weight: 600;
-        color: #64748b;
+        color: var(--sidebar-text, #64748b);
         text-decoration: none;
         transition: all 0.2s ease;
     }
 
     .menu-item:hover {
-        background: #eff6ff;
-        color: #2563eb;
+        background: var(--sidebar-hover-bg, #eff6ff);
+        color: var(--sidebar-hover-fg, #2563eb);
     }
 
     .menu-item.active {
-        background: #2563eb;
+        background: var(--color-accent, #2563eb);
         color: white;
     }
 
-    .sidebar-footer {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .account-wrapper {
-        position: relative;
-    }
+    .sidebar-footer { display: flex; flex-direction: column; gap: 12px; }
+    .account-wrapper { position: relative; }
 
     .account-btn {
         display: flex;
@@ -151,26 +155,23 @@
         gap: 12px;
         padding: 12px;
         border-radius: 12px;
-        background: #eff6ff;
-        color: #0a1628;
+        background: var(--account-btn-bg, #eff6ff);
+        color: var(--account-btn-fg, #0a1628);
         font-weight: 600;
         cursor: pointer;
         border: none;
         width: 100%;
         font-family: 'DM Sans', sans-serif;
         font-size: 14px;
+        transition: background 0.2s ease;
     }
 
-    .account-btn:hover {
-        background: #dbeafe;
-    }
+    .account-btn:hover { background: var(--account-btn-hover, #dbeafe); }
 
     .account-menu {
         position: absolute;
-        top: 110%;
-        left: 0;
-        right: 0;
-        background: white;
+        top: 110%; left: 0; right: 0;
+        background: var(--sidebar-bg, white);
         border-radius: 12px;
         box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         overflow: hidden;
@@ -178,35 +179,26 @@
     }
 
     .account-menu button {
-        width: 100%;
-        padding: 12px 16px;
-        border: none;
-        background: none;
-        text-align: left;
-        font-size: 14px;
-        font-weight: 600;
-        color: #ef4444;
-        cursor: pointer;
-        font-family: 'DM Sans', sans-serif;
+        width: 100%; padding: 12px 16px;
+        border: none; background: none;
+        text-align: left; font-size: 14px;
+        font-weight: 600; color: #ef4444;
+        cursor: pointer; font-family: 'DM Sans', sans-serif;
     }
 
-    .account-menu button:hover {
-        background: #fef2f2;
-    }
+    .account-menu button:hover { background: #fef2f2; }
 
     .avatar {
-        width: 32px;
-        height: 32px;
+        width: 32px; height: 32px;
         border-radius: 50%;
         background: linear-gradient(135deg, #60a5fa, #2563eb);
         flex-shrink: 0;
     }
 
-    .main-content {
-        overflow-y: auto;
-        padding-right: 8px;
-    }
-
+    .main-content { overflow-y: auto; padding-right: 8px; }
     .main-content::-webkit-scrollbar { width: 6px; }
-    .main-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    .main-content::-webkit-scrollbar-thumb {
+        background: var(--scrollbar-thumb, rgba(255,255,255,0.2));
+        border-radius: 10px;
+    }
 </style>
